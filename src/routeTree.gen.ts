@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedImportRouteImport } from './routes/_authenticated/import'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedTradesIndexRouteImport } from './routes/_authenticated/trades/index'
 import { Route as AuthenticatedTradesNewRouteImport } from './routes/_authenticated/trades/new'
@@ -29,6 +30,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedImportRoute = AuthenticatedImportRouteImport.update({
+  id: '/import',
+  path: '/import',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
@@ -51,6 +57,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/import': typeof AuthenticatedImportRoute
   '/trades/new': typeof AuthenticatedTradesNewRoute
   '/trades/': typeof AuthenticatedTradesIndexRoute
 }
@@ -58,6 +65,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/import': typeof AuthenticatedImportRoute
   '/trades/new': typeof AuthenticatedTradesNewRoute
   '/trades': typeof AuthenticatedTradesIndexRoute
 }
@@ -67,20 +75,28 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/import': typeof AuthenticatedImportRoute
   '/_authenticated/trades/new': typeof AuthenticatedTradesNewRoute
   '/_authenticated/trades/': typeof AuthenticatedTradesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/dashboard' | '/trades/new' | '/trades/'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/dashboard'
+    | '/import'
+    | '/trades/new'
+    | '/trades/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/dashboard' | '/trades/new' | '/trades'
+  to: '/' | '/auth' | '/dashboard' | '/import' | '/trades/new' | '/trades'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
     | '/_authenticated/dashboard'
+    | '/_authenticated/import'
     | '/_authenticated/trades/new'
     | '/_authenticated/trades/'
   fileRoutesById: FileRoutesById
@@ -114,6 +130,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/import': {
+      id: '/_authenticated/import'
+      path: '/import'
+      fullPath: '/import'
+      preLoaderRoute: typeof AuthenticatedImportRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -140,12 +163,14 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedImportRoute: typeof AuthenticatedImportRoute
   AuthenticatedTradesNewRoute: typeof AuthenticatedTradesNewRoute
   AuthenticatedTradesIndexRoute: typeof AuthenticatedTradesIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedImportRoute: AuthenticatedImportRoute,
   AuthenticatedTradesNewRoute: AuthenticatedTradesNewRoute,
   AuthenticatedTradesIndexRoute: AuthenticatedTradesIndexRoute,
 }
