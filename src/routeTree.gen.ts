@@ -12,9 +12,14 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedScoreRouteImport } from './routes/_authenticated/score'
+import { Route as AuthenticatedPsychologyRouteImport } from './routes/_authenticated/psychology'
 import { Route as AuthenticatedImportRouteImport } from './routes/_authenticated/import'
+import { Route as AuthenticatedDisciplineRouteImport } from './routes/_authenticated/discipline'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCoachRouteImport } from './routes/_authenticated/coach'
+import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedTradesIndexRouteImport } from './routes/_authenticated/trades/index'
 import { Route as AuthenticatedTradesNewRouteImport } from './routes/_authenticated/trades/new'
 
@@ -32,9 +37,29 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedScoreRoute = AuthenticatedScoreRouteImport.update({
+  id: '/score',
+  path: '/score',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPsychologyRoute = AuthenticatedPsychologyRouteImport.update({
+  id: '/psychology',
+  path: '/psychology',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedImportRoute = AuthenticatedImportRouteImport.update({
   id: '/import',
   path: '/import',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedDisciplineRoute = AuthenticatedDisciplineRouteImport.update({
+  id: '/discipline',
+  path: '/discipline',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
@@ -45,6 +70,11 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
 const AuthenticatedCoachRoute = AuthenticatedCoachRouteImport.update({
   id: '/coach',
   path: '/coach',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAnalyticsRoute = AuthenticatedAnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedTradesIndexRoute =
@@ -62,18 +92,28 @@ const AuthenticatedTradesNewRoute = AuthenticatedTradesNewRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/analytics': typeof AuthenticatedAnalyticsRoute
   '/coach': typeof AuthenticatedCoachRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/discipline': typeof AuthenticatedDisciplineRoute
   '/import': typeof AuthenticatedImportRoute
+  '/psychology': typeof AuthenticatedPsychologyRoute
+  '/score': typeof AuthenticatedScoreRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/trades/new': typeof AuthenticatedTradesNewRoute
   '/trades/': typeof AuthenticatedTradesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/analytics': typeof AuthenticatedAnalyticsRoute
   '/coach': typeof AuthenticatedCoachRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/discipline': typeof AuthenticatedDisciplineRoute
   '/import': typeof AuthenticatedImportRoute
+  '/psychology': typeof AuthenticatedPsychologyRoute
+  '/score': typeof AuthenticatedScoreRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/trades/new': typeof AuthenticatedTradesNewRoute
   '/trades': typeof AuthenticatedTradesIndexRoute
 }
@@ -82,9 +122,14 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
   '/_authenticated/coach': typeof AuthenticatedCoachRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/discipline': typeof AuthenticatedDisciplineRoute
   '/_authenticated/import': typeof AuthenticatedImportRoute
+  '/_authenticated/psychology': typeof AuthenticatedPsychologyRoute
+  '/_authenticated/score': typeof AuthenticatedScoreRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/trades/new': typeof AuthenticatedTradesNewRoute
   '/_authenticated/trades/': typeof AuthenticatedTradesIndexRoute
 }
@@ -93,18 +138,28 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/analytics'
     | '/coach'
     | '/dashboard'
+    | '/discipline'
     | '/import'
+    | '/psychology'
+    | '/score'
+    | '/settings'
     | '/trades/new'
     | '/trades/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
+    | '/analytics'
     | '/coach'
     | '/dashboard'
+    | '/discipline'
     | '/import'
+    | '/psychology'
+    | '/score'
+    | '/settings'
     | '/trades/new'
     | '/trades'
   id:
@@ -112,9 +167,14 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/_authenticated/analytics'
     | '/_authenticated/coach'
     | '/_authenticated/dashboard'
+    | '/_authenticated/discipline'
     | '/_authenticated/import'
+    | '/_authenticated/psychology'
+    | '/_authenticated/score'
+    | '/_authenticated/settings'
     | '/_authenticated/trades/new'
     | '/_authenticated/trades/'
   fileRoutesById: FileRoutesById
@@ -148,11 +208,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/score': {
+      id: '/_authenticated/score'
+      path: '/score'
+      fullPath: '/score'
+      preLoaderRoute: typeof AuthenticatedScoreRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/psychology': {
+      id: '/_authenticated/psychology'
+      path: '/psychology'
+      fullPath: '/psychology'
+      preLoaderRoute: typeof AuthenticatedPsychologyRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/import': {
       id: '/_authenticated/import'
       path: '/import'
       fullPath: '/import'
       preLoaderRoute: typeof AuthenticatedImportRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/discipline': {
+      id: '/_authenticated/discipline'
+      path: '/discipline'
+      fullPath: '/discipline'
+      preLoaderRoute: typeof AuthenticatedDisciplineRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/dashboard': {
@@ -167,6 +255,13 @@ declare module '@tanstack/react-router' {
       path: '/coach'
       fullPath: '/coach'
       preLoaderRoute: typeof AuthenticatedCoachRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/analytics': {
+      id: '/_authenticated/analytics'
+      path: '/analytics'
+      fullPath: '/analytics'
+      preLoaderRoute: typeof AuthenticatedAnalyticsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/trades/': {
@@ -187,17 +282,27 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
   AuthenticatedCoachRoute: typeof AuthenticatedCoachRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedDisciplineRoute: typeof AuthenticatedDisciplineRoute
   AuthenticatedImportRoute: typeof AuthenticatedImportRoute
+  AuthenticatedPsychologyRoute: typeof AuthenticatedPsychologyRoute
+  AuthenticatedScoreRoute: typeof AuthenticatedScoreRoute
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedTradesNewRoute: typeof AuthenticatedTradesNewRoute
   AuthenticatedTradesIndexRoute: typeof AuthenticatedTradesIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
   AuthenticatedCoachRoute: AuthenticatedCoachRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedDisciplineRoute: AuthenticatedDisciplineRoute,
   AuthenticatedImportRoute: AuthenticatedImportRoute,
+  AuthenticatedPsychologyRoute: AuthenticatedPsychologyRoute,
+  AuthenticatedScoreRoute: AuthenticatedScoreRoute,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedTradesNewRoute: AuthenticatedTradesNewRoute,
   AuthenticatedTradesIndexRoute: AuthenticatedTradesIndexRoute,
 }
