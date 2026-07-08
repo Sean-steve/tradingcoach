@@ -42,7 +42,7 @@ function Psych() {
     bucket("Poor mood (≤4)", (p) => (p.mood ?? 10) <= 4),
   ];
 
-  const avg = (k: string) => psych.length ? psych.reduce((s, p) => s + ((p as Record<string, number | null>)[k] ?? 0), 0) / psych.length : 0;
+  const avg = (k: string) => psych.length ? psych.reduce((s, p) => s + Number((p as unknown as Record<string, unknown>)[k] ?? 0), 0) / psych.length : 0;
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6">
