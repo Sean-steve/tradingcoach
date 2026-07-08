@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedImportRouteImport } from './routes/_authenticated/import'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedCoachRouteImport } from './routes/_authenticated/coach'
 import { Route as AuthenticatedTradesIndexRouteImport } from './routes/_authenticated/trades/index'
 import { Route as AuthenticatedTradesNewRouteImport } from './routes/_authenticated/trades/new'
 
@@ -41,6 +42,11 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedCoachRoute = AuthenticatedCoachRouteImport.update({
+  id: '/coach',
+  path: '/coach',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedTradesIndexRoute =
   AuthenticatedTradesIndexRouteImport.update({
     id: '/trades/',
@@ -56,6 +62,7 @@ const AuthenticatedTradesNewRoute = AuthenticatedTradesNewRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/coach': typeof AuthenticatedCoachRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/import': typeof AuthenticatedImportRoute
   '/trades/new': typeof AuthenticatedTradesNewRoute
@@ -64,6 +71,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/coach': typeof AuthenticatedCoachRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/import': typeof AuthenticatedImportRoute
   '/trades/new': typeof AuthenticatedTradesNewRoute
@@ -74,6 +82,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_authenticated/coach': typeof AuthenticatedCoachRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/import': typeof AuthenticatedImportRoute
   '/_authenticated/trades/new': typeof AuthenticatedTradesNewRoute
@@ -84,17 +93,26 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/coach'
     | '/dashboard'
     | '/import'
     | '/trades/new'
     | '/trades/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/dashboard' | '/import' | '/trades/new' | '/trades'
+  to:
+    | '/'
+    | '/auth'
+    | '/coach'
+    | '/dashboard'
+    | '/import'
+    | '/trades/new'
+    | '/trades'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/_authenticated/coach'
     | '/_authenticated/dashboard'
     | '/_authenticated/import'
     | '/_authenticated/trades/new'
@@ -144,6 +162,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/coach': {
+      id: '/_authenticated/coach'
+      path: '/coach'
+      fullPath: '/coach'
+      preLoaderRoute: typeof AuthenticatedCoachRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/trades/': {
       id: '/_authenticated/trades/'
       path: '/trades'
@@ -162,6 +187,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedCoachRoute: typeof AuthenticatedCoachRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedImportRoute: typeof AuthenticatedImportRoute
   AuthenticatedTradesNewRoute: typeof AuthenticatedTradesNewRoute
@@ -169,6 +195,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedCoachRoute: AuthenticatedCoachRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedImportRoute: AuthenticatedImportRoute,
   AuthenticatedTradesNewRoute: AuthenticatedTradesNewRoute,
