@@ -3,6 +3,7 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense } from "react";
 import { accountsQuery, tradesQuery, tradeMistakesQuery, psychQuery } from "@/lib/queries";
 import { computeMetrics, performanceScore } from "@/lib/metrics";
+import type { TradeLike } from "@/lib/metrics";
 import { StatCard } from "@/components/stat-card";
 import { formatMoney, formatPct, formatNum, gradeFromScore, pnlTone } from "@/lib/format";
 import { Card } from "@/components/ui/card";
@@ -29,7 +30,7 @@ function Dashboard() {
 
   const startBal = Number(active?.starting_balance ?? 10000);
   const currency = "USD";
-  const m = computeMetrics(trades, startBal);
+  const m = computeMetrics(trades as unknown as TradeLike[], startBal);
   const score = performanceScore(m);
   const grade = gradeFromScore(score.total);
 

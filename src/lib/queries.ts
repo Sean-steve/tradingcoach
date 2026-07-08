@@ -1,6 +1,8 @@
 import { queryOptions } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import type { TradeLike } from "@/lib/metrics";
+import type { Database } from "@/integrations/supabase/types";
+
+export type TradeRow = Database["public"]["Tables"]["trades"]["Row"];
 
 export const accountsQuery = () =>
   queryOptions({
@@ -28,7 +30,7 @@ export const tradesQuery = (accountId?: string) =>
       if (accountId) q = q.eq("account_id", accountId);
       const { data, error } = await q;
       if (error) throw error;
-      return (data ?? []) as unknown as (TradeLike & Record<string, unknown>)[];
+      return (data ?? []) as TradeRow[];
     },
   });
 
