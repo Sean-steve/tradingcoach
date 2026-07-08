@@ -62,7 +62,7 @@ export const rulesQuery = () =>
     },
   });
 
-export const coachReviewsQuery = (period?: string) =>
+export const coachReviewsQuery = (period?: "daily" | "weekly" | "monthly" | "quarterly" | "yearly") =>
   queryOptions({
     queryKey: ["coach_reviews", period ?? "all"],
     queryFn: async () => {
