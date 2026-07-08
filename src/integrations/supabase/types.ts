@@ -14,16 +14,662 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      accounts: {
+        Row: {
+          account_type: Database["public"]["Enums"]["account_type"]
+          broker: string | null
+          created_at: string
+          current_balance: number
+          id: string
+          is_archived: boolean
+          is_default: boolean
+          max_daily_loss: number | null
+          max_risk_pct: number | null
+          max_trades_per_day: number | null
+          max_weekly_loss: number | null
+          name: string
+          starting_balance: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_type?: Database["public"]["Enums"]["account_type"]
+          broker?: string | null
+          created_at?: string
+          current_balance?: number
+          id?: string
+          is_archived?: boolean
+          is_default?: boolean
+          max_daily_loss?: number | null
+          max_risk_pct?: number | null
+          max_trades_per_day?: number | null
+          max_weekly_loss?: number | null
+          name: string
+          starting_balance?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_type?: Database["public"]["Enums"]["account_type"]
+          broker?: string | null
+          created_at?: string
+          current_balance?: number
+          id?: string
+          is_archived?: boolean
+          is_default?: boolean
+          max_daily_loss?: number | null
+          max_risk_pct?: number | null
+          max_trades_per_day?: number | null
+          max_weekly_loss?: number | null
+          name?: string
+          starting_balance?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      coach_reviews: {
+        Row: {
+          account_id: string | null
+          created_at: string
+          findings: Json
+          id: string
+          metrics: Json
+          model: string | null
+          period: Database["public"]["Enums"]["review_period"]
+          period_end: string
+          period_start: string
+          recommendations: Json
+          summary: string
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          created_at?: string
+          findings?: Json
+          id?: string
+          metrics?: Json
+          model?: string | null
+          period: Database["public"]["Enums"]["review_period"]
+          period_end: string
+          period_start: string
+          recommendations?: Json
+          summary: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          created_at?: string
+          findings?: Json
+          id?: string
+          metrics?: Json
+          model?: string | null
+          period?: Database["public"]["Enums"]["review_period"]
+          period_end?: string
+          period_start?: string
+          recommendations?: Json
+          summary?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_reviews_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      daily_snapshots: {
+        Row: {
+          account_id: string
+          created_at: string
+          day: string
+          ending_balance: number
+          id: string
+          losses: number
+          pnl: number
+          starting_balance: number
+          trades_count: number
+          user_id: string
+          wins: number
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          day: string
+          ending_balance: number
+          id?: string
+          losses?: number
+          pnl?: number
+          starting_balance: number
+          trades_count?: number
+          user_id: string
+          wins?: number
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          day?: string
+          ending_balance?: number
+          id?: string
+          losses?: number
+          pnl?: number
+          starting_balance?: number
+          trades_count?: number
+          user_id?: string
+          wins?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_snapshots_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mistake_catalog: {
+        Row: {
+          category: string
+          code: string
+          id: string
+          name: string
+          severity: number
+          suggested_fix: string | null
+        }
+        Insert: {
+          category: string
+          code: string
+          id?: string
+          name: string
+          severity?: number
+          suggested_fix?: string | null
+        }
+        Update: {
+          category?: string
+          code?: string
+          id?: string
+          name?: string
+          severity?: number
+          suggested_fix?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          base_currency: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          timezone: string | null
+          updated_at: string
+        }
+        Insert: {
+          base_currency?: string | null
+          created_at?: string
+          display_name?: string | null
+          id: string
+          timezone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          base_currency?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          timezone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      psychology_checkins: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          decision_quality: number | null
+          discipline: number | null
+          energy: number | null
+          fear: number | null
+          focus: number | null
+          frustration: number | null
+          greed: number | null
+          id: string
+          mental_fatigue: number | null
+          mood: number | null
+          motivation: number | null
+          notes: string | null
+          patience: number | null
+          phase: string
+          satisfaction: number | null
+          sleep_quality: number | null
+          stress: number | null
+          trade_id: string | null
+          user_id: string
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string
+          decision_quality?: number | null
+          discipline?: number | null
+          energy?: number | null
+          fear?: number | null
+          focus?: number | null
+          frustration?: number | null
+          greed?: number | null
+          id?: string
+          mental_fatigue?: number | null
+          mood?: number | null
+          motivation?: number | null
+          notes?: string | null
+          patience?: number | null
+          phase: string
+          satisfaction?: number | null
+          sleep_quality?: number | null
+          stress?: number | null
+          trade_id?: string | null
+          user_id: string
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          decision_quality?: number | null
+          discipline?: number | null
+          energy?: number | null
+          fear?: number | null
+          focus?: number | null
+          frustration?: number | null
+          greed?: number | null
+          id?: string
+          mental_fatigue?: number | null
+          mood?: number | null
+          motivation?: number | null
+          notes?: string | null
+          patience?: number | null
+          phase?: string
+          satisfaction?: number | null
+          sleep_quality?: number | null
+          stress?: number | null
+          trade_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "psychology_checkins_trade_id_fkey"
+            columns: ["trade_id"]
+            isOneToOne: false
+            referencedRelation: "trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rule_violations: {
+        Row: {
+          created_at: string
+          id: string
+          note: string | null
+          rule_id: string
+          trade_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          rule_id: string
+          trade_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          rule_id?: string
+          trade_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rule_violations_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rule_violations_trade_id_fkey"
+            columns: ["trade_id"]
+            isOneToOne: false
+            referencedRelation: "trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rules: {
+        Row: {
+          category: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          title: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          title: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      strategies: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_archived: boolean
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_archived?: boolean
+          name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_archived?: boolean
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      trade_mistakes: {
+        Row: {
+          created_at: string
+          id: string
+          mistake_code: string
+          note: string | null
+          trade_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mistake_code: string
+          note?: string | null
+          trade_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mistake_code?: string
+          note?: string | null
+          trade_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trade_mistakes_mistake_code_fkey"
+            columns: ["mistake_code"]
+            isOneToOne: false
+            referencedRelation: "mistake_catalog"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "trade_mistakes_trade_id_fkey"
+            columns: ["trade_id"]
+            isOneToOne: false
+            referencedRelation: "trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trade_screenshots: {
+        Row: {
+          caption: string | null
+          created_at: string
+          id: string
+          kind: string
+          storage_path: string
+          trade_id: string
+          user_id: string
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          storage_path: string
+          trade_id: string
+          user_id: string
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          storage_path?: string
+          trade_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trade_screenshots_trade_id_fkey"
+            columns: ["trade_id"]
+            isOneToOne: false
+            referencedRelation: "trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trades: {
+        Row: {
+          account_id: string
+          asset: string
+          checklist_completed: boolean | null
+          confidence: number | null
+          created_at: string
+          direction: Database["public"]["Enums"]["trade_direction"]
+          duration_seconds: number | null
+          entered_at: string
+          entry_price: number | null
+          exit_price: number | null
+          exited_at: string | null
+          fees: number | null
+          followed_plan: boolean | null
+          id: string
+          lessons: string | null
+          market: string | null
+          planned_rr: number | null
+          pnl: number
+          position_size: number | null
+          post_notes: string | null
+          pre_notes: string | null
+          realized_rr: number | null
+          reason_entry: string | null
+          reason_exit: string | null
+          result: Database["public"]["Enums"]["trade_result"]
+          risk_pct: number | null
+          session: Database["public"]["Enums"]["trade_session"] | null
+          setup: string | null
+          setup_quality: number | null
+          stake: number | null
+          stop_loss: number | null
+          strategy_id: string | null
+          tags: string[] | null
+          take_profit: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          asset: string
+          checklist_completed?: boolean | null
+          confidence?: number | null
+          created_at?: string
+          direction: Database["public"]["Enums"]["trade_direction"]
+          duration_seconds?: number | null
+          entered_at: string
+          entry_price?: number | null
+          exit_price?: number | null
+          exited_at?: string | null
+          fees?: number | null
+          followed_plan?: boolean | null
+          id?: string
+          lessons?: string | null
+          market?: string | null
+          planned_rr?: number | null
+          pnl?: number
+          position_size?: number | null
+          post_notes?: string | null
+          pre_notes?: string | null
+          realized_rr?: number | null
+          reason_entry?: string | null
+          reason_exit?: string | null
+          result?: Database["public"]["Enums"]["trade_result"]
+          risk_pct?: number | null
+          session?: Database["public"]["Enums"]["trade_session"] | null
+          setup?: string | null
+          setup_quality?: number | null
+          stake?: number | null
+          stop_loss?: number | null
+          strategy_id?: string | null
+          tags?: string[] | null
+          take_profit?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          asset?: string
+          checklist_completed?: boolean | null
+          confidence?: number | null
+          created_at?: string
+          direction?: Database["public"]["Enums"]["trade_direction"]
+          duration_seconds?: number | null
+          entered_at?: string
+          entry_price?: number | null
+          exit_price?: number | null
+          exited_at?: string | null
+          fees?: number | null
+          followed_plan?: boolean | null
+          id?: string
+          lessons?: string | null
+          market?: string | null
+          planned_rr?: number | null
+          pnl?: number
+          position_size?: number | null
+          post_notes?: string | null
+          pre_notes?: string | null
+          realized_rr?: number | null
+          reason_entry?: string | null
+          reason_exit?: string | null
+          result?: Database["public"]["Enums"]["trade_result"]
+          risk_pct?: number | null
+          session?: Database["public"]["Enums"]["trade_session"] | null
+          setup?: string | null
+          setup_quality?: number | null
+          stake?: number | null
+          stop_loss?: number | null
+          strategy_id?: string | null
+          tags?: string[] | null
+          take_profit?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trades_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trades_strategy_id_fkey"
+            columns: ["strategy_id"]
+            isOneToOne: false
+            referencedRelation: "strategies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      account_type:
+        | "demo"
+        | "personal"
+        | "funded"
+        | "prop_firm"
+        | "crypto"
+        | "forex"
+        | "binary"
+      app_role: "user" | "admin"
+      review_period: "daily" | "weekly" | "monthly" | "quarterly" | "yearly"
+      trade_direction: "long" | "short"
+      trade_result: "win" | "loss" | "breakeven" | "open"
+      trade_session:
+        | "asian"
+        | "london"
+        | "newyork"
+        | "overlap_ln"
+        | "overlap_ny"
+        | "off_hours"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +796,28 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      account_type: [
+        "demo",
+        "personal",
+        "funded",
+        "prop_firm",
+        "crypto",
+        "forex",
+        "binary",
+      ],
+      app_role: ["user", "admin"],
+      review_period: ["daily", "weekly", "monthly", "quarterly", "yearly"],
+      trade_direction: ["long", "short"],
+      trade_result: ["win", "loss", "breakeven", "open"],
+      trade_session: [
+        "asian",
+        "london",
+        "newyork",
+        "overlap_ln",
+        "overlap_ny",
+        "off_hours",
+      ],
+    },
   },
 } as const
