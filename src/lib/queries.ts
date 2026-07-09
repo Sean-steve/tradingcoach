@@ -99,3 +99,59 @@ export const tradeMistakesQuery = () =>
       return data ?? [];
     },
   });
+
+export const goalsQuery = () =>
+  queryOptions({
+    queryKey: ["goals"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("goals").select("*").order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+export const habitsQuery = () =>
+  queryOptions({
+    queryKey: ["habits"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("habits").select("*").eq("is_active", true).order("created_at");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+export const habitLogsQuery = (days = 60) =>
+  queryOptions({
+    queryKey: ["habit_logs", days],
+    queryFn: async () => {
+      const from = new Date();
+      from.setDate(from.getDate() - days);
+      const { data, error } = await supabase
+        .from("habit_logs")
+        .select("*")
+        .gte("log_date", from.toISOString().slice(0, 10))
+        .order("log_date", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+export const badgesCatalogQuery = () =>
+  queryOptions({
+    queryKey: ["badges_catalog"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("badges_catalog").select("*").order("tier");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+export const userBadgesQuery = () =>
+  queryOptions({
+    queryKey: ["user_badges"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("user_badges").select("*").order("earned_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
