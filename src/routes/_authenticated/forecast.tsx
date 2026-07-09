@@ -75,11 +75,11 @@ function ForecastPage() {
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <StatCard label="Median final equity" value={formatMoney(result.finalMedian)} />
-            <StatCard label="Prob. profitable" value={formatPct(result.probProfit * 100)} tone={result.probProfit >= 0.6 ? "profit" : result.probProfit >= 0.4 ? "neutral" : "loss"} />
+            <StatCard label="Prob. profitable" value={formatPct(result.probProfit * 100)} tone={result.probProfit >= 0.6 ? "profit" : result.probProfit >= 0.4 ? "muted" : "loss"} />
             {result.probGoal !== null && (
-              <StatCard label="Prob. hit goal" value={formatPct(result.probGoal * 100)} tone={result.probGoal >= 0.5 ? "profit" : "neutral"} />
+              <StatCard label="Prob. hit goal" value={formatPct(result.probGoal * 100)} tone={result.probGoal >= 0.5 ? "profit" : "muted"} />
             )}
-            <StatCard label="Prob. ruin" value={formatPct(result.ruinProb * 100)} tone={result.ruinProb <= 0.05 ? "profit" : result.ruinProb <= 0.15 ? "neutral" : "loss"} />
+            <StatCard label="Prob. ruin" value={formatPct(result.ruinProb * 100)} tone={result.ruinProb <= 0.05 ? "profit" : result.ruinProb <= 0.15 ? "muted" : "loss"} />
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -115,8 +115,8 @@ function ForecastPage() {
           <Card className="glow-card p-6 border-border/40">
             <h2 className="font-semibold mb-2">Drawdown risk</h2>
             <div className="grid grid-cols-2 gap-4">
-              <StatCard label="Median max drawdown" value={formatPct(result.medianDrawdownPct)} tone={result.medianDrawdownPct <= 10 ? "profit" : result.medianDrawdownPct <= 20 ? "neutral" : "loss"} />
-              <StatCard label="Worst-case (p95) drawdown" value={formatPct(result.worstDrawdownPct)} tone={result.worstDrawdownPct <= 15 ? "profit" : result.worstDrawdownPct <= 30 ? "neutral" : "loss"} />
+              <StatCard label="Median max drawdown" value={formatPct(result.medianDrawdownPct)} tone={result.medianDrawdownPct <= 10 ? "profit" : result.medianDrawdownPct <= 20 ? "muted" : "loss"} />
+              <StatCard label="Worst-case (p95) drawdown" value={formatPct(result.worstDrawdownPct)} tone={result.worstDrawdownPct <= 15 ? "profit" : result.worstDrawdownPct <= 30 ? "muted" : "loss"} />
             </div>
             <p className="text-xs text-muted-foreground mt-3">
               Interpretation: over {horizonDays} days at {tradesPerDay} trades/day (~{result.horizonTrades} trades), sampling from your realized P&L distribution, half of simulated paths hit a drawdown of at least {formatPct(result.medianDrawdownPct)}. 5% hit {formatPct(result.worstDrawdownPct)} or worse. This is not a market prediction — it is a projection of your current statistical edge repeated forward.
