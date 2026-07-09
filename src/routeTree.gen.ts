@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedScoreRouteImport } from './routes/_authenticated/score'
+import { Route as AuthenticatedRewardsRouteImport } from './routes/_authenticated/rewards'
 import { Route as AuthenticatedPsychologyRouteImport } from './routes/_authenticated/psychology'
 import { Route as AuthenticatedImportRouteImport } from './routes/_authenticated/import'
 import { Route as AuthenticatedHabitsRouteImport } from './routes/_authenticated/habits'
@@ -48,6 +49,11 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
 const AuthenticatedScoreRoute = AuthenticatedScoreRouteImport.update({
   id: '/score',
   path: '/score',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedRewardsRoute = AuthenticatedRewardsRouteImport.update({
+  id: '/rewards',
+  path: '/rewards',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedPsychologyRoute = AuthenticatedPsychologyRouteImport.update({
@@ -119,6 +125,7 @@ export interface FileRoutesByFullPath {
   '/habits': typeof AuthenticatedHabitsRoute
   '/import': typeof AuthenticatedImportRoute
   '/psychology': typeof AuthenticatedPsychologyRoute
+  '/rewards': typeof AuthenticatedRewardsRoute
   '/score': typeof AuthenticatedScoreRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/trades/new': typeof AuthenticatedTradesNewRoute
@@ -136,6 +143,7 @@ export interface FileRoutesByTo {
   '/habits': typeof AuthenticatedHabitsRoute
   '/import': typeof AuthenticatedImportRoute
   '/psychology': typeof AuthenticatedPsychologyRoute
+  '/rewards': typeof AuthenticatedRewardsRoute
   '/score': typeof AuthenticatedScoreRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/trades/new': typeof AuthenticatedTradesNewRoute
@@ -155,6 +163,7 @@ export interface FileRoutesById {
   '/_authenticated/habits': typeof AuthenticatedHabitsRoute
   '/_authenticated/import': typeof AuthenticatedImportRoute
   '/_authenticated/psychology': typeof AuthenticatedPsychologyRoute
+  '/_authenticated/rewards': typeof AuthenticatedRewardsRoute
   '/_authenticated/score': typeof AuthenticatedScoreRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/trades/new': typeof AuthenticatedTradesNewRoute
@@ -174,6 +183,7 @@ export interface FileRouteTypes {
     | '/habits'
     | '/import'
     | '/psychology'
+    | '/rewards'
     | '/score'
     | '/settings'
     | '/trades/new'
@@ -191,6 +201,7 @@ export interface FileRouteTypes {
     | '/habits'
     | '/import'
     | '/psychology'
+    | '/rewards'
     | '/score'
     | '/settings'
     | '/trades/new'
@@ -209,6 +220,7 @@ export interface FileRouteTypes {
     | '/_authenticated/habits'
     | '/_authenticated/import'
     | '/_authenticated/psychology'
+    | '/_authenticated/rewards'
     | '/_authenticated/score'
     | '/_authenticated/settings'
     | '/_authenticated/trades/new'
@@ -256,6 +268,13 @@ declare module '@tanstack/react-router' {
       path: '/score'
       fullPath: '/score'
       preLoaderRoute: typeof AuthenticatedScoreRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/rewards': {
+      id: '/_authenticated/rewards'
+      path: '/rewards'
+      fullPath: '/rewards'
+      preLoaderRoute: typeof AuthenticatedRewardsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/psychology': {
@@ -348,6 +367,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedHabitsRoute: typeof AuthenticatedHabitsRoute
   AuthenticatedImportRoute: typeof AuthenticatedImportRoute
   AuthenticatedPsychologyRoute: typeof AuthenticatedPsychologyRoute
+  AuthenticatedRewardsRoute: typeof AuthenticatedRewardsRoute
   AuthenticatedScoreRoute: typeof AuthenticatedScoreRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedTradesNewRoute: typeof AuthenticatedTradesNewRoute
@@ -364,6 +384,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedHabitsRoute: AuthenticatedHabitsRoute,
   AuthenticatedImportRoute: AuthenticatedImportRoute,
   AuthenticatedPsychologyRoute: AuthenticatedPsychologyRoute,
+  AuthenticatedRewardsRoute: AuthenticatedRewardsRoute,
   AuthenticatedScoreRoute: AuthenticatedScoreRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedTradesNewRoute: AuthenticatedTradesNewRoute,
@@ -381,3 +402,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
