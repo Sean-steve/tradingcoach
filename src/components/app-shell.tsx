@@ -2,7 +2,7 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { BarChart3, BookOpen, Brain, Gauge, LayoutDashboard, LogOut, PlusCircle, Settings, ShieldCheck, Sparkles, Upload } from "lucide-react";
+import { Award, BarChart3, BookOpen, Brain, Gauge, LayoutDashboard, LineChart, LogOut, PlusCircle, Repeat, Settings, ShieldCheck, Sparkles, Target, Upload } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +14,10 @@ const nav: { to: string; label: string; icon: React.ComponentType<{ className?: 
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/psychology", label: "Psychology", icon: Brain },
   { to: "/discipline", label: "Discipline", icon: ShieldCheck },
+  { to: "/goals", label: "Goals", icon: Target },
+  { to: "/habits", label: "Habits", icon: Repeat },
+  { to: "/forecast", label: "Forecast", icon: LineChart },
+  { to: "/rewards", label: "Rewards", icon: Award },
   { to: "/coach", label: "AI Coach", icon: Sparkles },
   { to: "/score", label: "Performance", icon: Gauge },
   { to: "/settings", label: "Settings", icon: Settings },
