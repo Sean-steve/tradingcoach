@@ -15,6 +15,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedScoreRouteImport } from './routes/_authenticated/score'
 import { Route as AuthenticatedRewardsRouteImport } from './routes/_authenticated/rewards'
+import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedPsychologyRouteImport } from './routes/_authenticated/psychology'
 import { Route as AuthenticatedImportRouteImport } from './routes/_authenticated/import'
 import { Route as AuthenticatedHabitsRouteImport } from './routes/_authenticated/habits'
@@ -24,6 +25,7 @@ import { Route as AuthenticatedDisciplineRouteImport } from './routes/_authentic
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCoachRouteImport } from './routes/_authenticated/coach'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
+import { Route as AuthenticatedAccountsRouteImport } from './routes/_authenticated/accounts'
 import { Route as AuthenticatedTradesIndexRouteImport } from './routes/_authenticated/trades/index'
 import { Route as AuthenticatedTradesNewRouteImport } from './routes/_authenticated/trades/new'
 
@@ -54,6 +56,11 @@ const AuthenticatedScoreRoute = AuthenticatedScoreRouteImport.update({
 const AuthenticatedRewardsRoute = AuthenticatedRewardsRouteImport.update({
   id: '/rewards',
   path: '/rewards',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedPsychologyRoute = AuthenticatedPsychologyRouteImport.update({
@@ -101,6 +108,11 @@ const AuthenticatedAnalyticsRoute = AuthenticatedAnalyticsRouteImport.update({
   path: '/analytics',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAccountsRoute = AuthenticatedAccountsRouteImport.update({
+  id: '/accounts',
+  path: '/accounts',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedTradesIndexRoute =
   AuthenticatedTradesIndexRouteImport.update({
     id: '/trades/',
@@ -116,6 +128,7 @@ const AuthenticatedTradesNewRoute = AuthenticatedTradesNewRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/accounts': typeof AuthenticatedAccountsRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/coach': typeof AuthenticatedCoachRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -125,6 +138,7 @@ export interface FileRoutesByFullPath {
   '/habits': typeof AuthenticatedHabitsRoute
   '/import': typeof AuthenticatedImportRoute
   '/psychology': typeof AuthenticatedPsychologyRoute
+  '/reports': typeof AuthenticatedReportsRoute
   '/rewards': typeof AuthenticatedRewardsRoute
   '/score': typeof AuthenticatedScoreRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -134,6 +148,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/accounts': typeof AuthenticatedAccountsRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/coach': typeof AuthenticatedCoachRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -143,6 +158,7 @@ export interface FileRoutesByTo {
   '/habits': typeof AuthenticatedHabitsRoute
   '/import': typeof AuthenticatedImportRoute
   '/psychology': typeof AuthenticatedPsychologyRoute
+  '/reports': typeof AuthenticatedReportsRoute
   '/rewards': typeof AuthenticatedRewardsRoute
   '/score': typeof AuthenticatedScoreRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -154,6 +170,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_authenticated/accounts': typeof AuthenticatedAccountsRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
   '/_authenticated/coach': typeof AuthenticatedCoachRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
@@ -163,6 +180,7 @@ export interface FileRoutesById {
   '/_authenticated/habits': typeof AuthenticatedHabitsRoute
   '/_authenticated/import': typeof AuthenticatedImportRoute
   '/_authenticated/psychology': typeof AuthenticatedPsychologyRoute
+  '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/rewards': typeof AuthenticatedRewardsRoute
   '/_authenticated/score': typeof AuthenticatedScoreRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
@@ -174,6 +192,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/accounts'
     | '/analytics'
     | '/coach'
     | '/dashboard'
@@ -183,6 +202,7 @@ export interface FileRouteTypes {
     | '/habits'
     | '/import'
     | '/psychology'
+    | '/reports'
     | '/rewards'
     | '/score'
     | '/settings'
@@ -192,6 +212,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/accounts'
     | '/analytics'
     | '/coach'
     | '/dashboard'
@@ -201,6 +222,7 @@ export interface FileRouteTypes {
     | '/habits'
     | '/import'
     | '/psychology'
+    | '/reports'
     | '/rewards'
     | '/score'
     | '/settings'
@@ -211,6 +233,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/_authenticated/accounts'
     | '/_authenticated/analytics'
     | '/_authenticated/coach'
     | '/_authenticated/dashboard'
@@ -220,6 +243,7 @@ export interface FileRouteTypes {
     | '/_authenticated/habits'
     | '/_authenticated/import'
     | '/_authenticated/psychology'
+    | '/_authenticated/reports'
     | '/_authenticated/rewards'
     | '/_authenticated/score'
     | '/_authenticated/settings'
@@ -275,6 +299,13 @@ declare module '@tanstack/react-router' {
       path: '/rewards'
       fullPath: '/rewards'
       preLoaderRoute: typeof AuthenticatedRewardsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/reports': {
+      id: '/_authenticated/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof AuthenticatedReportsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/psychology': {
@@ -340,6 +371,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAnalyticsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/accounts': {
+      id: '/_authenticated/accounts'
+      path: '/accounts'
+      fullPath: '/accounts'
+      preLoaderRoute: typeof AuthenticatedAccountsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/trades/': {
       id: '/_authenticated/trades/'
       path: '/trades'
@@ -358,6 +396,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAccountsRoute: typeof AuthenticatedAccountsRoute
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
   AuthenticatedCoachRoute: typeof AuthenticatedCoachRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
@@ -367,6 +406,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedHabitsRoute: typeof AuthenticatedHabitsRoute
   AuthenticatedImportRoute: typeof AuthenticatedImportRoute
   AuthenticatedPsychologyRoute: typeof AuthenticatedPsychologyRoute
+  AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedRewardsRoute: typeof AuthenticatedRewardsRoute
   AuthenticatedScoreRoute: typeof AuthenticatedScoreRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
@@ -375,6 +415,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAccountsRoute: AuthenticatedAccountsRoute,
   AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
   AuthenticatedCoachRoute: AuthenticatedCoachRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
@@ -384,6 +425,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedHabitsRoute: AuthenticatedHabitsRoute,
   AuthenticatedImportRoute: AuthenticatedImportRoute,
   AuthenticatedPsychologyRoute: AuthenticatedPsychologyRoute,
+  AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedRewardsRoute: AuthenticatedRewardsRoute,
   AuthenticatedScoreRoute: AuthenticatedScoreRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
@@ -402,13 +444,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

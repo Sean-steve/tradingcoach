@@ -155,3 +155,25 @@ export const userBadgesQuery = () =>
       return data ?? [];
     },
   });
+
+export const profitAllocationsQuery = (accountId?: string) =>
+  queryOptions({
+    queryKey: ["profit_allocations", accountId ?? "all"],
+    queryFn: async () => {
+      let q = supabase.from("profit_allocations").select("*").order("allocated_at", { ascending: false });
+      if (accountId) q = q.eq("account_id", accountId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+export const allocationRulesQuery = () =>
+  queryOptions({
+    queryKey: ["allocation_rules"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("allocation_rules").select("*");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });

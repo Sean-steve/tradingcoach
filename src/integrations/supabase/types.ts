@@ -68,6 +68,50 @@ export type Database = {
         }
         Relationships: []
       }
+      allocation_rules: {
+        Row: {
+          account_id: string
+          created_at: string
+          id: string
+          reinvest_pct: number
+          reserve_pct: number
+          tax_pct: number
+          updated_at: string
+          user_id: string
+          withdraw_pct: number
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          id?: string
+          reinvest_pct?: number
+          reserve_pct?: number
+          tax_pct?: number
+          updated_at?: string
+          user_id: string
+          withdraw_pct?: number
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          id?: string
+          reinvest_pct?: number
+          reserve_pct?: number
+          tax_pct?: number
+          updated_at?: string
+          user_id?: string
+          withdraw_pct?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "allocation_rules_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: true
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       badges_catalog: {
         Row: {
           category: Database["public"]["Enums"]["badge_category"]
@@ -390,6 +434,47 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      profit_allocations: {
+        Row: {
+          account_id: string
+          allocated_at: string
+          amount: number
+          bucket: Database["public"]["Enums"]["allocation_bucket"]
+          created_at: string
+          id: string
+          note: string | null
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          allocated_at?: string
+          amount: number
+          bucket: Database["public"]["Enums"]["allocation_bucket"]
+          created_at?: string
+          id?: string
+          note?: string | null
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          allocated_at?: string
+          amount?: number
+          bucket?: Database["public"]["Enums"]["allocation_bucket"]
+          created_at?: string
+          id?: string
+          note?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profit_allocations_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       psychology_checkins: {
         Row: {
@@ -857,6 +942,7 @@ export type Database = {
         | "crypto"
         | "forex"
         | "binary"
+      allocation_bucket: "withdraw" | "reinvest" | "tax" | "reserve"
       app_role: "user" | "admin"
       badge_category:
         | "discipline"
@@ -1022,6 +1108,7 @@ export const Constants = {
         "forex",
         "binary",
       ],
+      allocation_bucket: ["withdraw", "reinvest", "tax", "reserve"],
       app_role: ["user", "admin"],
       badge_category: [
         "discipline",

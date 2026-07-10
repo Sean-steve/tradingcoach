@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { accountsQuery, tradesQuery, tradeMistakesQuery, psychQuery } from "@/lib/queries";
 import { computeMetrics, performanceScore } from "@/lib/metrics";
 import type { TradeLike } from "@/lib/metrics";
+import { useActiveAccountId } from "@/lib/active-account";
 import { StatCard } from "@/components/stat-card";
 import { formatMoney, formatPct, formatNum, gradeFromScore, pnlTone } from "@/lib/format";
 import { Card } from "@/components/ui/card";
@@ -23,7 +24,8 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 
 function Dashboard() {
   const { data: accounts } = useSuspenseQuery(accountsQuery());
-  const active = accounts[0];
+  const { activeId } = useActiveAccountId();
+  const active = accounts.find((a) => a.id === activeId) ?? accounts[0];
   const { data: trades } = useSuspenseQuery(tradesQuery(active?.id));
   const { data: mistakes } = useSuspenseQuery(tradeMistakesQuery());
   const { data: psych } = useSuspenseQuery(psychQuery());
