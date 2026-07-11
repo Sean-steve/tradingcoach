@@ -31,6 +31,7 @@ import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAccountsRouteImport } from './routes/_authenticated/accounts'
 import { Route as AuthenticatedTradesIndexRouteImport } from './routes/_authenticated/trades/index'
 import { Route as AuthenticatedTradesNewRouteImport } from './routes/_authenticated/trades/new'
+import { Route as AuthenticatedTradesTradeIdRouteImport } from './routes/_authenticated/trades/$tradeId'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -143,6 +144,12 @@ const AuthenticatedTradesNewRoute = AuthenticatedTradesNewRouteImport.update({
   path: '/trades/new',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedTradesTradeIdRoute =
+  AuthenticatedTradesTradeIdRouteImport.update({
+    id: '/trades/$tradeId',
+    path: '/trades/$tradeId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -164,6 +171,7 @@ export interface FileRoutesByFullPath {
   '/rules': typeof AuthenticatedRulesRoute
   '/score': typeof AuthenticatedScoreRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/trades/$tradeId': typeof AuthenticatedTradesTradeIdRoute
   '/trades/new': typeof AuthenticatedTradesNewRoute
   '/trades/': typeof AuthenticatedTradesIndexRoute
 }
@@ -187,6 +195,7 @@ export interface FileRoutesByTo {
   '/rules': typeof AuthenticatedRulesRoute
   '/score': typeof AuthenticatedScoreRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/trades/$tradeId': typeof AuthenticatedTradesTradeIdRoute
   '/trades/new': typeof AuthenticatedTradesNewRoute
   '/trades': typeof AuthenticatedTradesIndexRoute
 }
@@ -212,6 +221,7 @@ export interface FileRoutesById {
   '/_authenticated/rules': typeof AuthenticatedRulesRoute
   '/_authenticated/score': typeof AuthenticatedScoreRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/trades/$tradeId': typeof AuthenticatedTradesTradeIdRoute
   '/_authenticated/trades/new': typeof AuthenticatedTradesNewRoute
   '/_authenticated/trades/': typeof AuthenticatedTradesIndexRoute
 }
@@ -237,6 +247,7 @@ export interface FileRouteTypes {
     | '/rules'
     | '/score'
     | '/settings'
+    | '/trades/$tradeId'
     | '/trades/new'
     | '/trades/'
   fileRoutesByTo: FileRoutesByTo
@@ -260,6 +271,7 @@ export interface FileRouteTypes {
     | '/rules'
     | '/score'
     | '/settings'
+    | '/trades/$tradeId'
     | '/trades/new'
     | '/trades'
   id:
@@ -284,6 +296,7 @@ export interface FileRouteTypes {
     | '/_authenticated/rules'
     | '/_authenticated/score'
     | '/_authenticated/settings'
+    | '/_authenticated/trades/$tradeId'
     | '/_authenticated/trades/new'
     | '/_authenticated/trades/'
   fileRoutesById: FileRoutesById
@@ -450,6 +463,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTradesNewRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/trades/$tradeId': {
+      id: '/_authenticated/trades/$tradeId'
+      path: '/trades/$tradeId'
+      fullPath: '/trades/$tradeId'
+      preLoaderRoute: typeof AuthenticatedTradesTradeIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -471,6 +491,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedRulesRoute: typeof AuthenticatedRulesRoute
   AuthenticatedScoreRoute: typeof AuthenticatedScoreRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedTradesTradeIdRoute: typeof AuthenticatedTradesTradeIdRoute
   AuthenticatedTradesNewRoute: typeof AuthenticatedTradesNewRoute
   AuthenticatedTradesIndexRoute: typeof AuthenticatedTradesIndexRoute
 }
@@ -493,6 +514,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedRulesRoute: AuthenticatedRulesRoute,
   AuthenticatedScoreRoute: AuthenticatedScoreRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedTradesTradeIdRoute: AuthenticatedTradesTradeIdRoute,
   AuthenticatedTradesNewRoute: AuthenticatedTradesNewRoute,
   AuthenticatedTradesIndexRoute: AuthenticatedTradesIndexRoute,
 }
