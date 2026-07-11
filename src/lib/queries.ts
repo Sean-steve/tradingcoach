@@ -177,3 +177,37 @@ export const allocationRulesQuery = () =>
       return data ?? [];
     },
   });
+
+export const notificationsQuery = () =>
+  queryOptions({
+    queryKey: ["notifications"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("notifications")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+export const challengesQuery = () =>
+  queryOptions({
+    queryKey: ["challenges"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("challenges").select("*").eq("is_active", true).order("created_at");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+export const challengeProgressQuery = () =>
+  queryOptions({
+    queryKey: ["challenge_progress"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("challenge_progress").select("*").order("started_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });

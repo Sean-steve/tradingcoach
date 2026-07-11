@@ -80,9 +80,9 @@ function TradesList() {
                 <tr><td colSpan={9} className="text-center py-12 text-muted-foreground">No trades match.</td></tr>
               )}
               {filtered.map((t) => (
-                <tr key={t.id} className="border-b border-border/30 hover:bg-muted/20">
+                <tr key={t.id} className="border-b border-border/30 hover:bg-muted/20 cursor-pointer" onClick={() => (window.location.href = `/trades/${t.id}`)}>
                   <td className="px-4 py-3 text-muted-foreground">{new Date(t.entered_at).toLocaleDateString()}</td>
-                  <td className="px-4 py-3 font-medium">{t.asset}</td>
+                  <td className="px-4 py-3 font-medium text-primary">{t.asset}</td>
                   <td className="px-4 py-3 text-muted-foreground">{t.setup ?? "—"}</td>
                   <td className="px-4 py-3"><Badge variant="outline" className="uppercase text-[10px]">{t.direction}</Badge></td>
                   <td className="px-4 py-3 text-right number-mono text-muted-foreground">{t.risk_pct ? formatPct(Number(t.risk_pct)) : "—"}</td>

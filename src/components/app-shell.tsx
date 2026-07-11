@@ -2,11 +2,11 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Award, BarChart3, BookOpen, Brain, FileDown, Gauge, LayoutDashboard, LineChart, LogOut, PlusCircle, Repeat, Settings, ShieldCheck, Sparkles, Target, Upload, Wallet } from "lucide-react";
+import { Award, BarChart3, Bell, BookOpen, Brain, FileDown, Gauge, LayoutDashboard, LineChart, LogOut, PlusCircle, Repeat, Settings, ShieldCheck, Sparkles, Target, Trophy, Upload, Wallet } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { accountsQuery } from "@/lib/queries";
+import { accountsQuery, notificationsQuery } from "@/lib/queries";
 import { ActiveAccountProvider, useActiveAccountId } from "@/lib/active-account";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Suspense } from "react";
@@ -19,12 +19,15 @@ const nav: { to: string; label: string; icon: React.ComponentType<{ className?: 
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/psychology", label: "Psychology", icon: Brain },
   { to: "/discipline", label: "Discipline", icon: ShieldCheck },
+  { to: "/rules", label: "Rules", icon: ShieldCheck },
   { to: "/goals", label: "Goals", icon: Target },
   { to: "/habits", label: "Habits", icon: Repeat },
+  { to: "/challenges", label: "Challenges", icon: Trophy },
   { to: "/forecast", label: "Forecast", icon: LineChart },
   { to: "/rewards", label: "Rewards", icon: Award },
   { to: "/coach", label: "AI Coach", icon: Sparkles },
   { to: "/score", label: "Performance", icon: Gauge },
+  { to: "/notifications", label: "Notifications", icon: Bell },
   { to: "/accounts", label: "Accounts", icon: Wallet },
   { to: "/reports", label: "Reports", icon: FileDown },
   { to: "/settings", label: "Settings", icon: Settings },
@@ -49,6 +52,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 function ShellInner({ pathname, signOut, children }: { pathname: string; signOut: () => void; children: ReactNode }) {
   const { data: accounts } = useSuspenseQuery(accountsQuery());
+  const { data: notifs } = useSuspenseQuery(notificationsQuery());
+  const unread = notifs.filter((n) => !n.read_at).length;
   const defaultId = accounts.find((a) => a.is_default)?.id ?? accounts[0]?.id ?? null;
   return (
     <ActiveAccountProvider defaultId={defaultId}>
@@ -79,7 +84,10 @@ function ShellInner({ pathname, signOut, children }: { pathname: string; signOut
                 )}
               >
                 <item.icon className="h-4 w-4" />
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {item.to === "/notifications" && unread > 0 && (
+                  <span className="text-[10px] font-semibold bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 min-w-[18px] text-center">{unread}</span>
+                )}
               </Link>
             );
           })}

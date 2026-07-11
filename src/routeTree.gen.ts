@@ -14,9 +14,11 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedScoreRouteImport } from './routes/_authenticated/score'
+import { Route as AuthenticatedRulesRouteImport } from './routes/_authenticated/rules'
 import { Route as AuthenticatedRewardsRouteImport } from './routes/_authenticated/rewards'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedPsychologyRouteImport } from './routes/_authenticated/psychology'
+import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedImportRouteImport } from './routes/_authenticated/import'
 import { Route as AuthenticatedHabitsRouteImport } from './routes/_authenticated/habits'
 import { Route as AuthenticatedGoalsRouteImport } from './routes/_authenticated/goals'
@@ -24,10 +26,12 @@ import { Route as AuthenticatedForecastRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedDisciplineRouteImport } from './routes/_authenticated/discipline'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCoachRouteImport } from './routes/_authenticated/coach'
+import { Route as AuthenticatedChallengesRouteImport } from './routes/_authenticated/challenges'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedAccountsRouteImport } from './routes/_authenticated/accounts'
 import { Route as AuthenticatedTradesIndexRouteImport } from './routes/_authenticated/trades/index'
 import { Route as AuthenticatedTradesNewRouteImport } from './routes/_authenticated/trades/new'
+import { Route as AuthenticatedTradesTradeIdRouteImport } from './routes/_authenticated/trades/$tradeId'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -53,6 +57,11 @@ const AuthenticatedScoreRoute = AuthenticatedScoreRouteImport.update({
   path: '/score',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedRulesRoute = AuthenticatedRulesRouteImport.update({
+  id: '/rules',
+  path: '/rules',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedRewardsRoute = AuthenticatedRewardsRouteImport.update({
   id: '/rewards',
   path: '/rewards',
@@ -68,6 +77,12 @@ const AuthenticatedPsychologyRoute = AuthenticatedPsychologyRouteImport.update({
   path: '/psychology',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedNotificationsRoute =
+  AuthenticatedNotificationsRouteImport.update({
+    id: '/notifications',
+    path: '/notifications',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedImportRoute = AuthenticatedImportRouteImport.update({
   id: '/import',
   path: '/import',
@@ -103,6 +118,11 @@ const AuthenticatedCoachRoute = AuthenticatedCoachRouteImport.update({
   path: '/coach',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedChallengesRoute = AuthenticatedChallengesRouteImport.update({
+  id: '/challenges',
+  path: '/challenges',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedAnalyticsRoute = AuthenticatedAnalyticsRouteImport.update({
   id: '/analytics',
   path: '/analytics',
@@ -124,12 +144,19 @@ const AuthenticatedTradesNewRoute = AuthenticatedTradesNewRouteImport.update({
   path: '/trades/new',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedTradesTradeIdRoute =
+  AuthenticatedTradesTradeIdRouteImport.update({
+    id: '/trades/$tradeId',
+    path: '/trades/$tradeId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/accounts': typeof AuthenticatedAccountsRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
+  '/challenges': typeof AuthenticatedChallengesRoute
   '/coach': typeof AuthenticatedCoachRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/discipline': typeof AuthenticatedDisciplineRoute
@@ -137,11 +164,14 @@ export interface FileRoutesByFullPath {
   '/goals': typeof AuthenticatedGoalsRoute
   '/habits': typeof AuthenticatedHabitsRoute
   '/import': typeof AuthenticatedImportRoute
+  '/notifications': typeof AuthenticatedNotificationsRoute
   '/psychology': typeof AuthenticatedPsychologyRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/rewards': typeof AuthenticatedRewardsRoute
+  '/rules': typeof AuthenticatedRulesRoute
   '/score': typeof AuthenticatedScoreRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/trades/$tradeId': typeof AuthenticatedTradesTradeIdRoute
   '/trades/new': typeof AuthenticatedTradesNewRoute
   '/trades/': typeof AuthenticatedTradesIndexRoute
 }
@@ -150,6 +180,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/accounts': typeof AuthenticatedAccountsRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
+  '/challenges': typeof AuthenticatedChallengesRoute
   '/coach': typeof AuthenticatedCoachRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/discipline': typeof AuthenticatedDisciplineRoute
@@ -157,11 +188,14 @@ export interface FileRoutesByTo {
   '/goals': typeof AuthenticatedGoalsRoute
   '/habits': typeof AuthenticatedHabitsRoute
   '/import': typeof AuthenticatedImportRoute
+  '/notifications': typeof AuthenticatedNotificationsRoute
   '/psychology': typeof AuthenticatedPsychologyRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/rewards': typeof AuthenticatedRewardsRoute
+  '/rules': typeof AuthenticatedRulesRoute
   '/score': typeof AuthenticatedScoreRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/trades/$tradeId': typeof AuthenticatedTradesTradeIdRoute
   '/trades/new': typeof AuthenticatedTradesNewRoute
   '/trades': typeof AuthenticatedTradesIndexRoute
 }
@@ -172,6 +206,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/accounts': typeof AuthenticatedAccountsRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
+  '/_authenticated/challenges': typeof AuthenticatedChallengesRoute
   '/_authenticated/coach': typeof AuthenticatedCoachRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/discipline': typeof AuthenticatedDisciplineRoute
@@ -179,11 +214,14 @@ export interface FileRoutesById {
   '/_authenticated/goals': typeof AuthenticatedGoalsRoute
   '/_authenticated/habits': typeof AuthenticatedHabitsRoute
   '/_authenticated/import': typeof AuthenticatedImportRoute
+  '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/psychology': typeof AuthenticatedPsychologyRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/rewards': typeof AuthenticatedRewardsRoute
+  '/_authenticated/rules': typeof AuthenticatedRulesRoute
   '/_authenticated/score': typeof AuthenticatedScoreRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/trades/$tradeId': typeof AuthenticatedTradesTradeIdRoute
   '/_authenticated/trades/new': typeof AuthenticatedTradesNewRoute
   '/_authenticated/trades/': typeof AuthenticatedTradesIndexRoute
 }
@@ -194,6 +232,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/accounts'
     | '/analytics'
+    | '/challenges'
     | '/coach'
     | '/dashboard'
     | '/discipline'
@@ -201,11 +240,14 @@ export interface FileRouteTypes {
     | '/goals'
     | '/habits'
     | '/import'
+    | '/notifications'
     | '/psychology'
     | '/reports'
     | '/rewards'
+    | '/rules'
     | '/score'
     | '/settings'
+    | '/trades/$tradeId'
     | '/trades/new'
     | '/trades/'
   fileRoutesByTo: FileRoutesByTo
@@ -214,6 +256,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/accounts'
     | '/analytics'
+    | '/challenges'
     | '/coach'
     | '/dashboard'
     | '/discipline'
@@ -221,11 +264,14 @@ export interface FileRouteTypes {
     | '/goals'
     | '/habits'
     | '/import'
+    | '/notifications'
     | '/psychology'
     | '/reports'
     | '/rewards'
+    | '/rules'
     | '/score'
     | '/settings'
+    | '/trades/$tradeId'
     | '/trades/new'
     | '/trades'
   id:
@@ -235,6 +281,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/accounts'
     | '/_authenticated/analytics'
+    | '/_authenticated/challenges'
     | '/_authenticated/coach'
     | '/_authenticated/dashboard'
     | '/_authenticated/discipline'
@@ -242,11 +289,14 @@ export interface FileRouteTypes {
     | '/_authenticated/goals'
     | '/_authenticated/habits'
     | '/_authenticated/import'
+    | '/_authenticated/notifications'
     | '/_authenticated/psychology'
     | '/_authenticated/reports'
     | '/_authenticated/rewards'
+    | '/_authenticated/rules'
     | '/_authenticated/score'
     | '/_authenticated/settings'
+    | '/_authenticated/trades/$tradeId'
     | '/_authenticated/trades/new'
     | '/_authenticated/trades/'
   fileRoutesById: FileRoutesById
@@ -294,6 +344,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedScoreRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/rules': {
+      id: '/_authenticated/rules'
+      path: '/rules'
+      fullPath: '/rules'
+      preLoaderRoute: typeof AuthenticatedRulesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/rewards': {
       id: '/_authenticated/rewards'
       path: '/rewards'
@@ -313,6 +370,13 @@ declare module '@tanstack/react-router' {
       path: '/psychology'
       fullPath: '/psychology'
       preLoaderRoute: typeof AuthenticatedPsychologyRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/notifications': {
+      id: '/_authenticated/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof AuthenticatedNotificationsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/import': {
@@ -364,6 +428,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCoachRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/challenges': {
+      id: '/_authenticated/challenges'
+      path: '/challenges'
+      fullPath: '/challenges'
+      preLoaderRoute: typeof AuthenticatedChallengesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/analytics': {
       id: '/_authenticated/analytics'
       path: '/analytics'
@@ -392,12 +463,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTradesNewRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/trades/$tradeId': {
+      id: '/_authenticated/trades/$tradeId'
+      path: '/trades/$tradeId'
+      fullPath: '/trades/$tradeId'
+      preLoaderRoute: typeof AuthenticatedTradesTradeIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAccountsRoute: typeof AuthenticatedAccountsRoute
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
+  AuthenticatedChallengesRoute: typeof AuthenticatedChallengesRoute
   AuthenticatedCoachRoute: typeof AuthenticatedCoachRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDisciplineRoute: typeof AuthenticatedDisciplineRoute
@@ -405,11 +484,14 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedGoalsRoute: typeof AuthenticatedGoalsRoute
   AuthenticatedHabitsRoute: typeof AuthenticatedHabitsRoute
   AuthenticatedImportRoute: typeof AuthenticatedImportRoute
+  AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedPsychologyRoute: typeof AuthenticatedPsychologyRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedRewardsRoute: typeof AuthenticatedRewardsRoute
+  AuthenticatedRulesRoute: typeof AuthenticatedRulesRoute
   AuthenticatedScoreRoute: typeof AuthenticatedScoreRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedTradesTradeIdRoute: typeof AuthenticatedTradesTradeIdRoute
   AuthenticatedTradesNewRoute: typeof AuthenticatedTradesNewRoute
   AuthenticatedTradesIndexRoute: typeof AuthenticatedTradesIndexRoute
 }
@@ -417,6 +499,7 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAccountsRoute: AuthenticatedAccountsRoute,
   AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
+  AuthenticatedChallengesRoute: AuthenticatedChallengesRoute,
   AuthenticatedCoachRoute: AuthenticatedCoachRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDisciplineRoute: AuthenticatedDisciplineRoute,
@@ -424,11 +507,14 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedGoalsRoute: AuthenticatedGoalsRoute,
   AuthenticatedHabitsRoute: AuthenticatedHabitsRoute,
   AuthenticatedImportRoute: AuthenticatedImportRoute,
+  AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedPsychologyRoute: AuthenticatedPsychologyRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedRewardsRoute: AuthenticatedRewardsRoute,
+  AuthenticatedRulesRoute: AuthenticatedRulesRoute,
   AuthenticatedScoreRoute: AuthenticatedScoreRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedTradesTradeIdRoute: AuthenticatedTradesTradeIdRoute,
   AuthenticatedTradesNewRoute: AuthenticatedTradesNewRoute,
   AuthenticatedTradesIndexRoute: AuthenticatedTradesIndexRoute,
 }
