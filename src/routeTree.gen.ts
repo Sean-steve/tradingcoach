@@ -17,6 +17,7 @@ import { Route as AuthenticatedScoreRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedRewardsRouteImport } from './routes/_authenticated/rewards'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedPsychologyRouteImport } from './routes/_authenticated/psychology'
+import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedImportRouteImport } from './routes/_authenticated/import'
 import { Route as AuthenticatedHabitsRouteImport } from './routes/_authenticated/habits'
 import { Route as AuthenticatedGoalsRouteImport } from './routes/_authenticated/goals'
@@ -68,6 +69,12 @@ const AuthenticatedPsychologyRoute = AuthenticatedPsychologyRouteImport.update({
   path: '/psychology',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedNotificationsRoute =
+  AuthenticatedNotificationsRouteImport.update({
+    id: '/notifications',
+    path: '/notifications',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedImportRoute = AuthenticatedImportRouteImport.update({
   id: '/import',
   path: '/import',
@@ -137,6 +144,7 @@ export interface FileRoutesByFullPath {
   '/goals': typeof AuthenticatedGoalsRoute
   '/habits': typeof AuthenticatedHabitsRoute
   '/import': typeof AuthenticatedImportRoute
+  '/notifications': typeof AuthenticatedNotificationsRoute
   '/psychology': typeof AuthenticatedPsychologyRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/rewards': typeof AuthenticatedRewardsRoute
@@ -157,6 +165,7 @@ export interface FileRoutesByTo {
   '/goals': typeof AuthenticatedGoalsRoute
   '/habits': typeof AuthenticatedHabitsRoute
   '/import': typeof AuthenticatedImportRoute
+  '/notifications': typeof AuthenticatedNotificationsRoute
   '/psychology': typeof AuthenticatedPsychologyRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/rewards': typeof AuthenticatedRewardsRoute
@@ -179,6 +188,7 @@ export interface FileRoutesById {
   '/_authenticated/goals': typeof AuthenticatedGoalsRoute
   '/_authenticated/habits': typeof AuthenticatedHabitsRoute
   '/_authenticated/import': typeof AuthenticatedImportRoute
+  '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/psychology': typeof AuthenticatedPsychologyRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/rewards': typeof AuthenticatedRewardsRoute
@@ -201,6 +211,7 @@ export interface FileRouteTypes {
     | '/goals'
     | '/habits'
     | '/import'
+    | '/notifications'
     | '/psychology'
     | '/reports'
     | '/rewards'
@@ -221,6 +232,7 @@ export interface FileRouteTypes {
     | '/goals'
     | '/habits'
     | '/import'
+    | '/notifications'
     | '/psychology'
     | '/reports'
     | '/rewards'
@@ -242,6 +254,7 @@ export interface FileRouteTypes {
     | '/_authenticated/goals'
     | '/_authenticated/habits'
     | '/_authenticated/import'
+    | '/_authenticated/notifications'
     | '/_authenticated/psychology'
     | '/_authenticated/reports'
     | '/_authenticated/rewards'
@@ -313,6 +326,13 @@ declare module '@tanstack/react-router' {
       path: '/psychology'
       fullPath: '/psychology'
       preLoaderRoute: typeof AuthenticatedPsychologyRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/notifications': {
+      id: '/_authenticated/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof AuthenticatedNotificationsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/import': {
@@ -405,6 +425,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedGoalsRoute: typeof AuthenticatedGoalsRoute
   AuthenticatedHabitsRoute: typeof AuthenticatedHabitsRoute
   AuthenticatedImportRoute: typeof AuthenticatedImportRoute
+  AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedPsychologyRoute: typeof AuthenticatedPsychologyRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedRewardsRoute: typeof AuthenticatedRewardsRoute
@@ -424,6 +445,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedGoalsRoute: AuthenticatedGoalsRoute,
   AuthenticatedHabitsRoute: AuthenticatedHabitsRoute,
   AuthenticatedImportRoute: AuthenticatedImportRoute,
+  AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedPsychologyRoute: AuthenticatedPsychologyRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedRewardsRoute: AuthenticatedRewardsRoute,
