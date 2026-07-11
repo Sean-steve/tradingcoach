@@ -30,7 +30,7 @@ function ChallengesPage() {
     const grossWin = wins.reduce((s, t) => s + Number(t.pnl), 0);
     const grossLoss = Math.abs(losses.reduce((s, t) => s + Number(t.pnl), 0));
     const pf = grossLoss ? grossWin / grossLoss : grossWin ? Infinity : 0;
-    const journaled = closed.filter((t) => t.pre_trade_notes && t.setup_quality).length;
+    const journaled = closed.filter((t) => t.pre_notes && t.setup_quality).length;
     return { pf, journaled, closedCount: closed.length };
   }, [trades]);
 
