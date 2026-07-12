@@ -472,6 +472,7 @@ function NewTrade() {
         </Button>
       </div>
     </form>
+    )
   );
 }
 
