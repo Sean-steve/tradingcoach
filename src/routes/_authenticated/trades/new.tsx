@@ -79,6 +79,49 @@ function NewTrade() {
 
   const update = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm((f) => ({ ...f, [k]: v }));
 
+  // Loss-lock computation for the currently selected account
+  const selectedAcct = accounts.find((a) => a.id === form.account_id) ?? accounts[0];
+  const acctTrades = (allTrades ?? []).filter((t) => t.account_id === selectedAcct?.id) as unknown as TradeLike[];
+  const dayPnlNow = todayPnl(acctTrades);
+  const weekPnlNow = weekPnl(acctTrades);
+  const dLimit = selectedAcct?.max_daily_loss ? Number(selectedAcct.max_daily_loss) : null;
+  const wLimit = selectedAcct?.max_weekly_loss ? Number(selectedAcct.max_weekly_loss) : null;
+  const dailyLocked = dLimit != null && dayPnlNow <= -dLimit;
+  const weeklyLocked = wLimit != null && weekPnlNow <= -wLimit;
+  const isLocked = !unlocked && (dailyLocked || weeklyLocked);
+
+  const submitReflection = async () => {
+    if (reflection.trim().length < 40) {
+      toast.error("Reflection must be at least 40 characters. Be honest with yourself.");
+      return;
+    }
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const uid = userData.user?.id;
+      if (!uid) throw new Error("Not signed in");
+      await supabase.from("psychology_checkins").insert({
+        user_id: uid,
+        phase: "post",
+        mood: 5,
+        stress: 8,
+        focus: 5,
+        confidence: 5,
+        discipline: 8,
+        notes: `[LOSS LOCK REFLECTION] ${reflection}`,
+      });
+      await supabase.from("notifications").insert({
+        user_id: uid,
+        kind: "rule_breach",
+        title: dailyLocked ? "Daily loss lock reflected" : "Weekly loss lock reflected",
+        body: reflection.slice(0, 240),
+      });
+      toast.success("Reflection saved. Trade wisely.");
+      setUnlocked(true);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to save reflection");
+    }
+  };
+
   const handleFiles = (files: FileList | null, kind: string) => {
     if (!files) return;
     const next = Array.from(files).map((f) => ({ file: f, kind, preview: URL.createObjectURL(f) }));
