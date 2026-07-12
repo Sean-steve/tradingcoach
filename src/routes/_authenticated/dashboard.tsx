@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense } from "react";
 import { accountsQuery, tradesQuery, tradeMistakesQuery, psychQuery } from "@/lib/queries";
-import { computeMetrics, performanceScore } from "@/lib/metrics";
+import { computeMetrics, performanceScore, consistencyIndex, rollup, bucketWeek, bucketMonth } from "@/lib/metrics";
 import type { TradeLike } from "@/lib/metrics";
 import { useActiveAccountId } from "@/lib/active-account";
 import { StatCard } from "@/components/stat-card";
@@ -12,7 +12,11 @@ import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { ActivitySquare, PlusCircle, Sparkles, TrendingUp } from "lucide-react";
+import { ActivitySquare, AlertTriangle, Bot, Loader2, PlusCircle, Sparkles, TrendingUp } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { useMutation } from "@tanstack/react-query";
+import { generateDailyAdvice } from "@/lib/ai-advice.functions";
+import { useState } from "react";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: () => (
@@ -51,12 +55,45 @@ function Dashboard() {
       )
     : 0;
 
+  const consistency = consistencyIndex(m);
+  const weekly = rollup(trades as unknown as TradeLike[], bucketWeek);
+  const monthly = rollup(trades as unknown as TradeLike[], bucketMonth);
+  const weeklyScore = weekly[0] ? scoreFromRollup(weekly[0]) : 0;
+  const monthlyScore = monthly[0] ? scoreFromRollup(monthly[0]) : 0;
+  const weeklyGrade = gradeFromScore(weeklyScore);
+  const monthlyGrade = gradeFromScore(monthlyScore);
+
+  // Loss-lock detection
+  const dailyLimit = active?.max_daily_loss ? Number(active.max_daily_loss) : null;
+  const weeklyLimit = active?.max_weekly_loss ? Number(active.max_weekly_loss) : null;
+  const dailyLocked = dailyLimit != null && dayPnl <= -dailyLimit;
+  const weeklyLocked = weeklyLimit != null && weekPnl <= -weeklyLimit;
+  const dailyWarn = !dailyLocked && dailyLimit != null && dayPnl <= -dailyLimit * 0.75;
+  const weeklyWarn = !weeklyLocked && weeklyLimit != null && weekPnl <= -weeklyLimit * 0.75;
+
   const equity = m.equityCurve.map((e, i) => ({ i, balance: Number(e.balance.toFixed(2)) }));
 
   const missionText = suggestMission(m, score, dayPnl);
 
   return (
     <div className="p-8 max-w-[1600px] mx-auto space-y-6">
+      {(dailyLocked || weeklyLocked || dailyWarn || weeklyWarn) && (
+        <Card className={`border-2 p-4 ${dailyLocked || weeklyLocked ? "border-loss/70 bg-loss-soft/40" : "border-[color:var(--warn)]/60"}`}>
+          <div className="flex items-start gap-3">
+            <AlertTriangle className={`h-5 w-5 mt-0.5 ${dailyLocked || weeklyLocked ? "text-loss" : "text-[color:var(--warn)]"}`} />
+            <div className="text-sm">
+              <div className="font-semibold">
+                {dailyLocked ? "Daily loss lock triggered" : weeklyLocked ? "Weekly loss lock triggered" : dailyWarn ? "Approaching daily loss limit" : "Approaching weekly loss limit"}
+              </div>
+              <div className="text-muted-foreground mt-1">
+                {dailyLocked || weeklyLocked
+                  ? "New trade entry is blocked. Complete a written reflection to unlock, or wait for the next period."
+                  : "Consider stopping for the day. Preserve capital and psychology."}
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
           <div className="text-xs uppercase tracking-wider text-muted-foreground">Command Center</div>
@@ -136,6 +173,17 @@ function Dashboard() {
         <StatCard label="This Month" value={formatMoney(monthPnl, currency, { sign: true })} tone={pnlTone(monthPnl)} />
         <StatCard label="Net P&L" value={formatMoney(m.netPnl, currency, { sign: true })} tone={pnlTone(m.netPnl)} />
       </div>
+
+      {/* Psychology / Consistency / Weekly / Monthly grades */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <StatCard label="Psychology Score" value={psychScore || "—"} sub="0–100 · pre-trade check-ins" tone={psychScore >= 70 ? "profit" : psychScore >= 50 ? "warn" : psychScore ? "loss" : "muted"} />
+        <StatCard label="Consistency Index" value={consistency} sub="win-rate + streak control" tone={consistency >= 70 ? "profit" : consistency >= 50 ? "warn" : "loss"} />
+        <StatCard label="Weekly Grade" value={weeklyGrade.grade} sub={weekly[0] ? `${weekly[0].trades} trades · ${formatMoney(weekly[0].netPnl, currency, { sign: true })}` : "no data"} tone={weeklyGrade.tone} />
+        <StatCard label="Monthly Grade" value={monthlyGrade.grade} sub={monthly[0] ? `${monthly[0].trades} trades · ${formatMoney(monthly[0].netPnl, currency, { sign: true })}` : "no data"} tone={monthlyGrade.tone} />
+      </div>
+
+      {/* AI Daily Advice */}
+      <AIAdviceCard />
 
       {/* Core metrics */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -263,4 +311,38 @@ function suggestMission(m: ReturnType<typeof computeMetrics>, score: ReturnType<
   if (dayPnl < 0) return "You're red on the day. One more setup, then stop. Preserve capital and psychology.";
   if (score.discipline < 60) return "Discipline is your weakest pillar. Skip one questionable setup today. Journal why.";
   return "Green zone. Trade your A+ setups only. Do not size up.";
+}
+
+function scoreFromRollup(r: { winRate: number; profitFactor: number; expectancy: number; netPnl: number }): number {
+  const pf = Number.isFinite(r.profitFactor) ? Math.min(r.profitFactor, 3) : 3;
+  const wrPart = Math.max(0, Math.min(100, r.winRate));
+  const pfPart = (pf / 3) * 100;
+  const expPart = r.expectancy > 0 ? 100 : r.netPnl >= 0 ? 60 : 20;
+  return Math.round(wrPart * 0.35 + pfPart * 0.4 + expPart * 0.25);
+}
+
+function AIAdviceCard() {
+  const fn = useServerFn(generateDailyAdvice);
+  const [advice, setAdvice] = useState<string | null>(null);
+  const mut = useMutation({
+    mutationFn: async () => fn({ data: undefined as unknown as never }),
+    onSuccess: (res) => setAdvice(res.advice),
+    onError: (e) => setAdvice(e instanceof Error ? e.message : "Failed to fetch advice."),
+  });
+  return (
+    <Card className="glow-card p-6 border-border/40">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
+          <Bot className="h-3 w-3 text-primary" /> AI Daily Advice
+        </div>
+        <Button size="sm" variant="outline" onClick={() => mut.mutate()} disabled={mut.isPending} className="gap-2">
+          {mut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+          {advice ? "Refresh" : "Generate today's brief"}
+        </Button>
+      </div>
+      <p className="text-sm mt-3 leading-relaxed min-h-[3rem]">
+        {advice ?? "Tap the button for a 60-word brief on where to focus today, based on your last 7 days."}
+      </p>
+    </Card>
+  );
 }

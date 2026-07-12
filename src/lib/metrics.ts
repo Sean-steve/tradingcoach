@@ -216,3 +216,171 @@ export function sessionFromDate(d: Date): "asian" | "london" | "newyork" | "over
   if (h >= 16 && h < 21) return "newyork";
   return "off_hours";
 }
+
+/** 0–100 psychology score derived from pre/post check-ins. */
+export function psychologyScore(
+  psych: Array<{ mood?: number | null; stress?: number | null; focus?: number | null; confidence?: number | null; discipline?: number | null; fear?: number | null }>,
+): number {
+  if (!psych.length) return 0;
+  const vals = psych.map((p) => {
+    const mood = Number(p.mood ?? 5);
+    const stress = Number(p.stress ?? 5);
+    const focus = Number(p.focus ?? 5);
+    const confidence = Number(p.confidence ?? 5);
+    const discipline = Number(p.discipline ?? 5);
+    const fear = Number(p.fear ?? 5);
+    return ((mood + focus + confidence + discipline + (10 - stress) + (10 - fear)) / 6) * 10;
+  });
+  return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+}
+
+/** 0–100 consistency index (win-rate stability + loss-streak control). */
+export function consistencyIndex(m: Metrics): number {
+  const wr = Math.max(0, Math.min(100, m.winRate));
+  const streakPenalty = Math.min(40, m.longestLossStreak * 5);
+  const expBonus = m.expectancy > 0 ? 20 : 0;
+  return Math.max(0, Math.min(100, Math.round(wr * 0.6 - streakPenalty + expBonus + 20)));
+}
+
+export interface PeriodRollup {
+  period: string;
+  trades: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+  netPnl: number;
+  profitFactor: number;
+  expectancy: number;
+}
+
+export function rollup(trades: TradeLike[], bucketKey: (d: Date) => string): PeriodRollup[] {
+  const map = new Map<string, TradeLike[]>();
+  for (const t of trades) {
+    if (t.result === "open") continue;
+    const d = new Date(t.exited_at ?? t.entered_at);
+    const k = bucketKey(d);
+    if (!map.has(k)) map.set(k, []);
+    map.get(k)!.push(t);
+  }
+  return [...map.entries()]
+    .sort()
+    .reverse()
+    .map(([period, arr]) => {
+      const wins = arr.filter((t) => t.pnl > 0);
+      const losses = arr.filter((t) => t.pnl < 0);
+      const gp = wins.reduce((s, t) => s + t.pnl, 0);
+      const gl = Math.abs(losses.reduce((s, t) => s + t.pnl, 0));
+      const net = gp - gl;
+      return {
+        period,
+        trades: arr.length,
+        wins: wins.length,
+        losses: losses.length,
+        winRate: arr.length ? (wins.length / arr.length) * 100 : 0,
+        netPnl: net,
+        profitFactor: gl > 0 ? gp / gl : gp > 0 ? Infinity : 0,
+        expectancy: arr.length ? net / arr.length : 0,
+      };
+    });
+}
+
+export const bucketDay = (d: Date) => d.toISOString().slice(0, 10);
+export const bucketWeek = (d: Date) => {
+  const n = new Date(d);
+  n.setUTCDate(n.getUTCDate() - n.getUTCDay());
+  return n.toISOString().slice(0, 10);
+};
+export const bucketMonth = (d: Date) => d.toISOString().slice(0, 7);
+export const bucketQuarter = (d: Date) => `${d.getUTCFullYear()}-Q${Math.floor(d.getUTCMonth() / 3) + 1}`;
+export const bucketYear = (d: Date) => String(d.getUTCFullYear());
+
+export function rollingPerformance(trades: TradeLike[], window = 20): { i: number; winRate: number; expectancy: number; pf: number }[] {
+  const closed = trades
+    .filter((t) => t.result !== "open")
+    .slice()
+    .sort((a, b) => +new Date(a.exited_at ?? a.entered_at) - +new Date(b.exited_at ?? b.entered_at));
+  const out: { i: number; winRate: number; expectancy: number; pf: number }[] = [];
+  for (let i = window - 1; i < closed.length; i++) {
+    const chunk = closed.slice(i - window + 1, i + 1);
+    const wins = chunk.filter((t) => t.pnl > 0);
+    const losses = chunk.filter((t) => t.pnl < 0);
+    const gp = wins.reduce((s, t) => s + t.pnl, 0);
+    const gl = Math.abs(losses.reduce((s, t) => s + t.pnl, 0));
+    const net = gp - gl;
+    out.push({
+      i: i + 1,
+      winRate: (wins.length / chunk.length) * 100,
+      expectancy: net / chunk.length,
+      pf: gl > 0 ? Math.min(gp / gl, 5) : gp > 0 ? 5 : 0,
+    });
+  }
+  return out;
+}
+
+export function heatmapData(trades: TradeLike[]): { date: string; pnl: number; count: number }[] {
+  const map = new Map<string, { pnl: number; count: number }>();
+  for (const t of trades) {
+    if (t.result === "open") continue;
+    const raw = t.exited_at ?? t.entered_at;
+    const k = raw.slice(0, 10);
+    const cur = map.get(k) ?? { pnl: 0, count: 0 };
+    cur.pnl += Number(t.pnl);
+    cur.count++;
+    map.set(k, cur);
+  }
+  return [...map.entries()].map(([date, v]) => ({ date, ...v }));
+}
+
+export function groupByDimension(
+  trades: TradeLike[],
+  keyOf: (t: TradeLike) => string,
+): { key: string; trades: TradeLike[] }[] {
+  const map = new Map<string, TradeLike[]>();
+  for (const t of trades) {
+    if (t.result === "open") continue;
+    const k = keyOf(t) || "unknown";
+    if (!map.has(k)) map.set(k, []);
+    map.get(k)!.push(t);
+  }
+  return [...map.entries()].map(([key, arr]) => ({ key, trades: arr }));
+}
+
+export interface MistakeCostAgg {
+  category: string;
+  count: number;
+  cost: number;
+}
+
+export function costOfMistakesByCategory(
+  mistakes: Array<{ trade_id: string; mistake_code: string; mistake_catalog?: { category?: string | null } | null }>,
+  trades: Array<{ id: string; pnl: number | string }>,
+): MistakeCostAgg[] {
+  const tradeById = new Map(trades.map((t) => [t.id, Number(t.pnl)]));
+  const map = new Map<string, MistakeCostAgg>();
+  for (const m of mistakes) {
+    const cat = m.mistake_catalog?.category ?? "uncategorized";
+    const pnl = tradeById.get(m.trade_id) ?? 0;
+    const cur = map.get(cat) ?? { category: cat, count: 0, cost: 0 };
+    cur.count++;
+    if (pnl < 0) cur.cost += pnl;
+    map.set(cat, cur);
+  }
+  return [...map.values()].sort((a, b) => a.cost - b.cost);
+}
+
+export function todayPnl(trades: TradeLike[]): number {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return trades
+    .filter((t) => t.exited_at && new Date(t.exited_at) >= start)
+    .reduce((s, t) => s + Number(t.pnl), 0);
+}
+
+export function weekPnl(trades: TradeLike[]): number {
+  const now = new Date();
+  const start = new Date(now);
+  start.setDate(now.getDate() - 7);
+  return trades
+    .filter((t) => t.exited_at && new Date(t.exited_at) >= start)
+    .reduce((s, t) => s + Number(t.pnl), 0);
+}

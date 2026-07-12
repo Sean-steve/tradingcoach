@@ -31,6 +31,49 @@ function ImportPage() {
   const [headers, setHeaders] = useState<string[]>([]);
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const [preset, setPreset] = useState<"generic" | "mt4" | "mt5">("generic");
+
+  const applyPreset = (p: "generic" | "mt4" | "mt5") => {
+    setPreset(p);
+    if (!headers.length) return;
+    const find = (aliases: string[]) => {
+      const lower = headers.map((h) => h.toLowerCase());
+      for (const a of aliases) {
+        const idx = lower.findIndex((x) => x === a.toLowerCase() || x.includes(a.toLowerCase()));
+        if (idx >= 0) return headers[idx];
+      }
+      return "";
+    };
+    if (p === "mt4") {
+      setMapping({
+        asset: find(["Symbol"]),
+        entered_at: find(["Open Time", "OpenTime"]),
+        exited_at: find(["Close Time", "CloseTime"]),
+        direction: find(["Type"]),
+        entry_price: find(["Open Price", "Price"]),
+        exit_price: find(["Close Price"]),
+        stop_loss: find(["S / L", "S/L", "SL"]),
+        take_profit: find(["T / P", "T/P", "TP"]),
+        position_size: find(["Size", "Lots"]),
+        pnl: find(["Profit"]),
+        fees: find(["Commission", "Swap"]),
+      });
+    } else if (p === "mt5") {
+      setMapping({
+        asset: find(["Symbol"]),
+        entered_at: find(["Time", "Open Time"]),
+        exited_at: find(["Close Time"]),
+        direction: find(["Type", "Direction"]),
+        entry_price: find(["Price"]),
+        exit_price: find(["Price.1", "Close"]),
+        stop_loss: find(["S / L", "SL"]),
+        take_profit: find(["T / P", "TP"]),
+        position_size: find(["Volume"]),
+        pnl: find(["Profit"]),
+        fees: find(["Commission", "Fee", "Swap"]),
+      });
+    }
+  };
 
   const FIELDS: { key: keyof TradeInsert; label: string; required?: boolean }[] = [
     { key: "asset", label: "Asset / Symbol", required: true },
@@ -169,7 +212,14 @@ function ImportPage() {
 
         {rows.length > 0 && (
           <>
-            <div className="text-sm text-muted-foreground">{rows.length} rows detected. Map columns:</div>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="text-sm text-muted-foreground">{rows.length} rows detected. Map columns:</div>
+              <div className="flex gap-1">
+                {(["generic", "mt4", "mt5"] as const).map((p) => (
+                  <Button key={p} type="button" size="sm" variant={preset === p ? "default" : "outline"} onClick={() => applyPreset(p)} className="text-xs h-7 uppercase">{p}</Button>
+                ))}
+              </div>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {FIELDS.map((f) => (
                 <div key={f.key as string} className="flex items-center gap-3">

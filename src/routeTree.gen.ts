@@ -12,7 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedStrategiesRouteImport } from './routes/_authenticated/strategies'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedSessionsRouteImport } from './routes/_authenticated/sessions'
 import { Route as AuthenticatedScoreRouteImport } from './routes/_authenticated/score'
 import { Route as AuthenticatedRulesRouteImport } from './routes/_authenticated/rules'
 import { Route as AuthenticatedRewardsRouteImport } from './routes/_authenticated/rewards'
@@ -27,6 +29,7 @@ import { Route as AuthenticatedDisciplineRouteImport } from './routes/_authentic
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCoachRouteImport } from './routes/_authenticated/coach'
 import { Route as AuthenticatedChallengesRouteImport } from './routes/_authenticated/challenges'
+import { Route as AuthenticatedAssetsRouteImport } from './routes/_authenticated/assets'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedAccountsRouteImport } from './routes/_authenticated/accounts'
 import { Route as AuthenticatedTradesIndexRouteImport } from './routes/_authenticated/trades/index'
@@ -47,9 +50,19 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedStrategiesRoute = AuthenticatedStrategiesRouteImport.update({
+  id: '/strategies',
+  path: '/strategies',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSessionsRoute = AuthenticatedSessionsRouteImport.update({
+  id: '/sessions',
+  path: '/sessions',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedScoreRoute = AuthenticatedScoreRouteImport.update({
@@ -123,6 +136,11 @@ const AuthenticatedChallengesRoute = AuthenticatedChallengesRouteImport.update({
   path: '/challenges',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAssetsRoute = AuthenticatedAssetsRouteImport.update({
+  id: '/assets',
+  path: '/assets',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedAnalyticsRoute = AuthenticatedAnalyticsRouteImport.update({
   id: '/analytics',
   path: '/analytics',
@@ -156,6 +174,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/accounts': typeof AuthenticatedAccountsRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
+  '/assets': typeof AuthenticatedAssetsRoute
   '/challenges': typeof AuthenticatedChallengesRoute
   '/coach': typeof AuthenticatedCoachRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -170,7 +189,9 @@ export interface FileRoutesByFullPath {
   '/rewards': typeof AuthenticatedRewardsRoute
   '/rules': typeof AuthenticatedRulesRoute
   '/score': typeof AuthenticatedScoreRoute
+  '/sessions': typeof AuthenticatedSessionsRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/strategies': typeof AuthenticatedStrategiesRoute
   '/trades/$tradeId': typeof AuthenticatedTradesTradeIdRoute
   '/trades/new': typeof AuthenticatedTradesNewRoute
   '/trades/': typeof AuthenticatedTradesIndexRoute
@@ -180,6 +201,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/accounts': typeof AuthenticatedAccountsRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
+  '/assets': typeof AuthenticatedAssetsRoute
   '/challenges': typeof AuthenticatedChallengesRoute
   '/coach': typeof AuthenticatedCoachRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -194,7 +216,9 @@ export interface FileRoutesByTo {
   '/rewards': typeof AuthenticatedRewardsRoute
   '/rules': typeof AuthenticatedRulesRoute
   '/score': typeof AuthenticatedScoreRoute
+  '/sessions': typeof AuthenticatedSessionsRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/strategies': typeof AuthenticatedStrategiesRoute
   '/trades/$tradeId': typeof AuthenticatedTradesTradeIdRoute
   '/trades/new': typeof AuthenticatedTradesNewRoute
   '/trades': typeof AuthenticatedTradesIndexRoute
@@ -206,6 +230,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/accounts': typeof AuthenticatedAccountsRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
+  '/_authenticated/assets': typeof AuthenticatedAssetsRoute
   '/_authenticated/challenges': typeof AuthenticatedChallengesRoute
   '/_authenticated/coach': typeof AuthenticatedCoachRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
@@ -220,7 +245,9 @@ export interface FileRoutesById {
   '/_authenticated/rewards': typeof AuthenticatedRewardsRoute
   '/_authenticated/rules': typeof AuthenticatedRulesRoute
   '/_authenticated/score': typeof AuthenticatedScoreRoute
+  '/_authenticated/sessions': typeof AuthenticatedSessionsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/strategies': typeof AuthenticatedStrategiesRoute
   '/_authenticated/trades/$tradeId': typeof AuthenticatedTradesTradeIdRoute
   '/_authenticated/trades/new': typeof AuthenticatedTradesNewRoute
   '/_authenticated/trades/': typeof AuthenticatedTradesIndexRoute
@@ -232,6 +259,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/accounts'
     | '/analytics'
+    | '/assets'
     | '/challenges'
     | '/coach'
     | '/dashboard'
@@ -246,7 +274,9 @@ export interface FileRouteTypes {
     | '/rewards'
     | '/rules'
     | '/score'
+    | '/sessions'
     | '/settings'
+    | '/strategies'
     | '/trades/$tradeId'
     | '/trades/new'
     | '/trades/'
@@ -256,6 +286,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/accounts'
     | '/analytics'
+    | '/assets'
     | '/challenges'
     | '/coach'
     | '/dashboard'
@@ -270,7 +301,9 @@ export interface FileRouteTypes {
     | '/rewards'
     | '/rules'
     | '/score'
+    | '/sessions'
     | '/settings'
+    | '/strategies'
     | '/trades/$tradeId'
     | '/trades/new'
     | '/trades'
@@ -281,6 +314,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/accounts'
     | '/_authenticated/analytics'
+    | '/_authenticated/assets'
     | '/_authenticated/challenges'
     | '/_authenticated/coach'
     | '/_authenticated/dashboard'
@@ -295,7 +329,9 @@ export interface FileRouteTypes {
     | '/_authenticated/rewards'
     | '/_authenticated/rules'
     | '/_authenticated/score'
+    | '/_authenticated/sessions'
     | '/_authenticated/settings'
+    | '/_authenticated/strategies'
     | '/_authenticated/trades/$tradeId'
     | '/_authenticated/trades/new'
     | '/_authenticated/trades/'
@@ -330,11 +366,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/strategies': {
+      id: '/_authenticated/strategies'
+      path: '/strategies'
+      fullPath: '/strategies'
+      preLoaderRoute: typeof AuthenticatedStrategiesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/settings': {
       id: '/_authenticated/settings'
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/sessions': {
+      id: '/_authenticated/sessions'
+      path: '/sessions'
+      fullPath: '/sessions'
+      preLoaderRoute: typeof AuthenticatedSessionsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/score': {
@@ -435,6 +485,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedChallengesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/assets': {
+      id: '/_authenticated/assets'
+      path: '/assets'
+      fullPath: '/assets'
+      preLoaderRoute: typeof AuthenticatedAssetsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/analytics': {
       id: '/_authenticated/analytics'
       path: '/analytics'
@@ -476,6 +533,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAccountsRoute: typeof AuthenticatedAccountsRoute
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
+  AuthenticatedAssetsRoute: typeof AuthenticatedAssetsRoute
   AuthenticatedChallengesRoute: typeof AuthenticatedChallengesRoute
   AuthenticatedCoachRoute: typeof AuthenticatedCoachRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
@@ -490,7 +548,9 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedRewardsRoute: typeof AuthenticatedRewardsRoute
   AuthenticatedRulesRoute: typeof AuthenticatedRulesRoute
   AuthenticatedScoreRoute: typeof AuthenticatedScoreRoute
+  AuthenticatedSessionsRoute: typeof AuthenticatedSessionsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedStrategiesRoute: typeof AuthenticatedStrategiesRoute
   AuthenticatedTradesTradeIdRoute: typeof AuthenticatedTradesTradeIdRoute
   AuthenticatedTradesNewRoute: typeof AuthenticatedTradesNewRoute
   AuthenticatedTradesIndexRoute: typeof AuthenticatedTradesIndexRoute
@@ -499,6 +559,7 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAccountsRoute: AuthenticatedAccountsRoute,
   AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
+  AuthenticatedAssetsRoute: AuthenticatedAssetsRoute,
   AuthenticatedChallengesRoute: AuthenticatedChallengesRoute,
   AuthenticatedCoachRoute: AuthenticatedCoachRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
@@ -513,7 +574,9 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedRewardsRoute: AuthenticatedRewardsRoute,
   AuthenticatedRulesRoute: AuthenticatedRulesRoute,
   AuthenticatedScoreRoute: AuthenticatedScoreRoute,
+  AuthenticatedSessionsRoute: AuthenticatedSessionsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedStrategiesRoute: AuthenticatedStrategiesRoute,
   AuthenticatedTradesTradeIdRoute: AuthenticatedTradesTradeIdRoute,
   AuthenticatedTradesNewRoute: AuthenticatedTradesNewRoute,
   AuthenticatedTradesIndexRoute: AuthenticatedTradesIndexRoute,
@@ -530,13 +593,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

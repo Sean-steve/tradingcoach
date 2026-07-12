@@ -2,8 +2,11 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { accountsQuery, strategiesQuery, mistakeCatalogQuery } from "@/lib/queries";
+import { accountsQuery, strategiesQuery, mistakeCatalogQuery, tradesQuery } from "@/lib/queries";
 import { sessionFromDate } from "@/lib/metrics";
+import { todayPnl, weekPnl } from "@/lib/metrics";
+import type { TradeLike } from "@/lib/metrics";
+import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,8 +33,11 @@ function NewTrade() {
   const { data: accounts } = useSuspenseQuery(accountsQuery());
   const { data: strategies } = useSuspenseQuery(strategiesQuery());
   const { data: catalog } = useSuspenseQuery(mistakeCatalogQuery());
+  const { data: allTrades } = useSuspenseQuery(tradesQuery());
 
   const [saving, setSaving] = useState(false);
+  const [reflection, setReflection] = useState("");
+  const [unlocked, setUnlocked] = useState<boolean>(false);
   const [screenshots, setScreenshots] = useState<{ file: File; kind: string; preview: string }[]>([]);
   const [selectedMistakes, setSelectedMistakes] = useState<string[]>([]);
   const [form, setForm] = useState({
@@ -72,6 +78,49 @@ function NewTrade() {
   });
 
   const update = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm((f) => ({ ...f, [k]: v }));
+
+  // Loss-lock computation for the currently selected account
+  const selectedAcct = accounts.find((a) => a.id === form.account_id) ?? accounts[0];
+  const acctTrades = (allTrades ?? []).filter((t) => t.account_id === selectedAcct?.id) as unknown as TradeLike[];
+  const dayPnlNow = todayPnl(acctTrades);
+  const weekPnlNow = weekPnl(acctTrades);
+  const dLimit = selectedAcct?.max_daily_loss ? Number(selectedAcct.max_daily_loss) : null;
+  const wLimit = selectedAcct?.max_weekly_loss ? Number(selectedAcct.max_weekly_loss) : null;
+  const dailyLocked = dLimit != null && dayPnlNow <= -dLimit;
+  const weeklyLocked = wLimit != null && weekPnlNow <= -wLimit;
+  const isLocked = !unlocked && (dailyLocked || weeklyLocked);
+
+  const submitReflection = async () => {
+    if (reflection.trim().length < 40) {
+      toast.error("Reflection must be at least 40 characters. Be honest with yourself.");
+      return;
+    }
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const uid = userData.user?.id;
+      if (!uid) throw new Error("Not signed in");
+      await supabase.from("psychology_checkins").insert({
+        user_id: uid,
+        phase: "post",
+        mood: 5,
+        stress: 8,
+        focus: 5,
+        confidence: 5,
+        discipline: 8,
+        notes: `[LOSS LOCK REFLECTION] ${reflection}`,
+      });
+      await supabase.from("notifications").insert({
+        user_id: uid,
+        kind: "rule_breach",
+        title: dailyLocked ? "Daily loss lock reflected" : "Weekly loss lock reflected",
+        body: reflection.slice(0, 240),
+      });
+      toast.success("Reflection saved. Trade wisely.");
+      setUnlocked(true);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to save reflection");
+    }
+  };
 
   const handleFiles = (files: FileList | null, kind: string) => {
     if (!files) return;
@@ -173,6 +222,31 @@ function NewTrade() {
   };
 
   return (
+    isLocked ? (
+      <div className="p-8 max-w-2xl mx-auto space-y-4">
+        <Card className="glow-card border-2 border-loss/60 p-6 space-y-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-6 w-6 text-loss mt-0.5" />
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">
+                {dailyLocked ? "Daily loss lock triggered" : "Weekly loss lock triggered"}
+              </h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                You breached your {dailyLocked ? "daily" : "weekly"} loss limit on <b>{selectedAcct?.name}</b>. New entries are blocked until you complete a written reflection (min 40 characters).
+              </p>
+            </div>
+          </div>
+          <div>
+            <Label>Reflection: what went wrong, what you'll change</Label>
+            <Textarea value={reflection} onChange={(e) => setReflection(e.target.value)} className="mt-2 min-h-32" placeholder="Be specific. Emotions, rule breaks, setup quality, position sizing…" />
+          </div>
+          <div className="flex gap-2">
+            <Button type="button" onClick={submitReflection}>Save reflection & unlock</Button>
+            <Button type="button" variant="outline" onClick={() => navigate({ to: "/dashboard" })}>Back to dashboard</Button>
+          </div>
+        </Card>
+      </div>
+    ) : (
     <form onSubmit={submit} className="p-8 max-w-5xl mx-auto space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Log a trade</h1>
@@ -398,6 +472,7 @@ function NewTrade() {
         </Button>
       </div>
     </form>
+    )
   );
 }
 
