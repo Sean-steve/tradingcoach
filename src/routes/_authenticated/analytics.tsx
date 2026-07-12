@@ -2,11 +2,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense, useMemo } from "react";
 import { accountsQuery, tradesQuery } from "@/lib/queries";
-import { computeMetrics, type TradeLike } from "@/lib/metrics";
+import { computeMetrics, rollingPerformance, heatmapData, rollup, bucketDay, bucketWeek, bucketMonth, bucketQuarter, bucketYear, type TradeLike } from "@/lib/metrics";
 import { Card } from "@/components/ui/card";
 import { StatCard } from "@/components/stat-card";
 import { formatMoney, formatNum, formatPct, pnlTone } from "@/lib/format";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_authenticated/analytics")({
   component: () => (
@@ -144,6 +146,10 @@ function Analytics() {
         <BreakdownTable title="Performance by session" rows={bySession} />
         <BreakdownTable title="Top assets" rows={byAsset} />
       </div>
+
+      <WinRateAndRolling trades={trades as unknown as TradeLike[]} />
+      <HeatmapCalendar trades={trades as unknown as TradeLike[]} />
+      <PeriodTables trades={trades as unknown as TradeLike[]} />
     </div>
   );
 }
@@ -183,6 +189,158 @@ function BreakdownTable({ title, rows }: { title: string; rows: { key: string; c
           ))}
         </tbody>
       </table>
+    </Card>
+  );
+}
+
+function WinRateAndRolling({ trades }: { trades: TradeLike[] }) {
+  const rolling = rollingPerformance(trades, 20).map((r) => ({ i: r.i, winRate: Number(r.winRate.toFixed(1)), expectancy: Number(r.expectancy.toFixed(2)), pf: Number(r.pf.toFixed(2)) }));
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <Card className="glow-card p-6 border-border/40">
+        <h3 className="font-semibold mb-4">Rolling win rate (20-trade window)</h3>
+        <div className="h-64">
+          {rolling.length === 0 ? (
+            <div className="text-sm text-muted-foreground p-8 text-center">Need at least 20 closed trades.</div>
+          ) : (
+            <ResponsiveContainer>
+              <LineChart data={rolling}>
+                <CartesianGrid strokeDasharray="3 3" stroke="oklch(1 0 0 / 5%)" />
+                <XAxis dataKey="i" tick={{ fontSize: 11, fill: "oklch(0.68 0.03 250)" }} />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: "oklch(0.68 0.03 250)" }} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => `${v}%`} />
+                <Line type="monotone" dataKey="winRate" stroke="oklch(0.82 0.17 165)" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </Card>
+      <Card className="glow-card p-6 border-border/40">
+        <h3 className="font-semibold mb-4">Rolling profit factor (20-trade window)</h3>
+        <div className="h-64">
+          {rolling.length === 0 ? (
+            <div className="text-sm text-muted-foreground p-8 text-center">Need at least 20 closed trades.</div>
+          ) : (
+            <ResponsiveContainer>
+              <LineChart data={rolling}>
+                <CartesianGrid strokeDasharray="3 3" stroke="oklch(1 0 0 / 5%)" />
+                <XAxis dataKey="i" tick={{ fontSize: 11, fill: "oklch(0.68 0.03 250)" }} />
+                <YAxis domain={[0, 5]} tick={{ fontSize: 11, fill: "oklch(0.68 0.03 250)" }} />
+                <Tooltip contentStyle={tooltipStyle} />
+                <Line type="monotone" dataKey="pf" stroke="oklch(0.72 0.19 260)" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function HeatmapCalendar({ trades }: { trades: TradeLike[] }) {
+  const rows = heatmapData(trades);
+  const map = new Map(rows.map((r) => [r.date, r]));
+  const today = new Date();
+  const days: { date: string; pnl: number; count: number }[] = [];
+  for (let i = 89; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    const k = d.toISOString().slice(0, 10);
+    const r = map.get(k);
+    days.push({ date: k, pnl: r?.pnl ?? 0, count: r?.count ?? 0 });
+  }
+  const max = Math.max(1, ...days.map((d) => Math.abs(d.pnl)));
+  return (
+    <Card className="glow-card p-6 border-border/40">
+      <h3 className="font-semibold mb-4">Last 90 days heatmap</h3>
+      <div className="grid gap-1" style={{ gridTemplateColumns: "repeat(15, minmax(0, 1fr))" }}>
+        {days.map((d) => {
+          const intensity = Math.min(1, Math.abs(d.pnl) / max);
+          const bg = d.pnl > 0
+            ? `oklch(0.82 0.17 165 / ${0.15 + intensity * 0.85})`
+            : d.pnl < 0
+              ? `oklch(0.65 0.24 25 / ${0.15 + intensity * 0.85})`
+              : "oklch(1 0 0 / 5%)";
+          return (
+            <div
+              key={d.date}
+              title={`${d.date}: ${d.count} trades · ${formatMoney(d.pnl, "USD", { sign: true })}`}
+              className="aspect-square rounded-sm border border-border/30"
+              style={{ background: bg }}
+            />
+          );
+        })}
+      </div>
+      <div className="flex items-center gap-3 mt-4 text-[11px] text-muted-foreground">
+        <span>Loss</span>
+        <span className="inline-block h-3 w-3 rounded-sm" style={{ background: "oklch(0.65 0.24 25 / 0.9)" }} />
+        <span className="inline-block h-3 w-3 rounded-sm" style={{ background: "oklch(1 0 0 / 8%)" }} />
+        <span className="inline-block h-3 w-3 rounded-sm" style={{ background: "oklch(0.82 0.17 165 / 0.9)" }} />
+        <span>Profit</span>
+      </div>
+    </Card>
+  );
+}
+
+function PeriodTables({ trades }: { trades: TradeLike[] }) {
+  const [period, setPeriod] = useState<"daily" | "weekly" | "monthly" | "quarterly" | "yearly" | "lifetime">("monthly");
+  const bucketMap = {
+    daily: bucketDay,
+    weekly: bucketWeek,
+    monthly: bucketMonth,
+    quarterly: bucketQuarter,
+    yearly: bucketYear,
+    lifetime: () => "Lifetime",
+  } as const;
+  const rows = rollup(trades, bucketMap[period]);
+  const periods: Array<typeof period> = ["daily", "weekly", "monthly", "quarterly", "yearly", "lifetime"];
+  return (
+    <Card className="glow-card p-6 border-border/40">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+        <h3 className="font-semibold">Period breakdown</h3>
+        <div className="flex gap-1 flex-wrap">
+          {periods.map((p) => (
+            <Button key={p} size="sm" variant={period === p ? "default" : "outline"} onClick={() => setPeriod(p)} className="capitalize text-xs h-7">
+              {p}
+            </Button>
+          ))}
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="text-[11px] uppercase tracking-wider text-muted-foreground">
+            <tr>
+              <th className="text-left py-2">Period</th>
+              <th className="text-right">Trades</th>
+              <th className="text-right">Wins</th>
+              <th className="text-right">Losses</th>
+              <th className="text-right">Win %</th>
+              <th className="text-right">PF</th>
+              <th className="text-right">Expectancy</th>
+              <th className="text-right">Net P&L</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={8} className="text-center py-8 text-muted-foreground">No data</td>
+              </tr>
+            )}
+            {rows.slice(0, 30).map((r) => (
+              <tr key={r.period} className="border-b border-border/30 last:border-0">
+                <td className="py-2 font-medium">{r.period}</td>
+                <td className="text-right number-mono text-muted-foreground">{r.trades}</td>
+                <td className="text-right number-mono text-profit">{r.wins}</td>
+                <td className="text-right number-mono text-loss">{r.losses}</td>
+                <td className="text-right number-mono">{formatPct(r.winRate, { digits: 0 })}</td>
+                <td className="text-right number-mono">{Number.isFinite(r.profitFactor) ? formatNum(r.profitFactor) : "∞"}</td>
+                <td className={`text-right number-mono text-${pnlTone(r.expectancy)}`}>{formatMoney(r.expectancy, "USD", { sign: true })}</td>
+                <td className={`text-right number-mono text-${pnlTone(r.netPnl)}`}>{formatMoney(r.netPnl, "USD", { sign: true })}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </Card>
   );
 }
