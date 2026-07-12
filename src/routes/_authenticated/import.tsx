@@ -212,7 +212,14 @@ function ImportPage() {
 
         {rows.length > 0 && (
           <>
-            <div className="text-sm text-muted-foreground">{rows.length} rows detected. Map columns:</div>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="text-sm text-muted-foreground">{rows.length} rows detected. Map columns:</div>
+              <div className="flex gap-1">
+                {(["generic", "mt4", "mt5"] as const).map((p) => (
+                  <Button key={p} type="button" size="sm" variant={preset === p ? "default" : "outline"} onClick={() => applyPreset(p)} className="text-xs h-7 uppercase">{p}</Button>
+                ))}
+              </div>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {FIELDS.map((f) => (
                 <div key={f.key as string} className="flex items-center gap-3">
