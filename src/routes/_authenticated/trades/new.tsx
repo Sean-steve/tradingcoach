@@ -222,6 +222,31 @@ function NewTrade() {
   };
 
   return (
+    isLocked ? (
+      <div className="p-8 max-w-2xl mx-auto space-y-4">
+        <Card className="glow-card border-2 border-loss/60 p-6 space-y-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-6 w-6 text-loss mt-0.5" />
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">
+                {dailyLocked ? "Daily loss lock triggered" : "Weekly loss lock triggered"}
+              </h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                You breached your {dailyLocked ? "daily" : "weekly"} loss limit on <b>{selectedAcct?.name}</b>. New entries are blocked until you complete a written reflection (min 40 characters).
+              </p>
+            </div>
+          </div>
+          <div>
+            <Label>Reflection: what went wrong, what you'll change</Label>
+            <Textarea value={reflection} onChange={(e) => setReflection(e.target.value)} className="mt-2 min-h-32" placeholder="Be specific. Emotions, rule breaks, setup quality, position sizing…" />
+          </div>
+          <div className="flex gap-2">
+            <Button type="button" onClick={submitReflection}>Save reflection & unlock</Button>
+            <Button type="button" variant="outline" onClick={() => navigate({ to: "/dashboard" })}>Back to dashboard</Button>
+          </div>
+        </Card>
+      </div>
+    ) : (
     <form onSubmit={submit} className="p-8 max-w-5xl mx-auto space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Log a trade</h1>
