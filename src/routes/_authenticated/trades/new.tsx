@@ -2,8 +2,11 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { accountsQuery, strategiesQuery, mistakeCatalogQuery } from "@/lib/queries";
+import { accountsQuery, strategiesQuery, mistakeCatalogQuery, tradesQuery } from "@/lib/queries";
 import { sessionFromDate } from "@/lib/metrics";
+import { todayPnl, weekPnl } from "@/lib/metrics";
+import type { TradeLike } from "@/lib/metrics";
+import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,8 +33,11 @@ function NewTrade() {
   const { data: accounts } = useSuspenseQuery(accountsQuery());
   const { data: strategies } = useSuspenseQuery(strategiesQuery());
   const { data: catalog } = useSuspenseQuery(mistakeCatalogQuery());
+  const { data: allTrades } = useSuspenseQuery(tradesQuery());
 
   const [saving, setSaving] = useState(false);
+  const [reflection, setReflection] = useState("");
+  const [unlocked, setUnlocked] = useState<boolean>(false);
   const [screenshots, setScreenshots] = useState<{ file: File; kind: string; preview: string }[]>([]);
   const [selectedMistakes, setSelectedMistakes] = useState<string[]>([]);
   const [form, setForm] = useState({
