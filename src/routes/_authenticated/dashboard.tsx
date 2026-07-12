@@ -312,3 +312,37 @@ function suggestMission(m: ReturnType<typeof computeMetrics>, score: ReturnType<
   if (score.discipline < 60) return "Discipline is your weakest pillar. Skip one questionable setup today. Journal why.";
   return "Green zone. Trade your A+ setups only. Do not size up.";
 }
+
+function scoreFromRollup(r: { winRate: number; profitFactor: number; expectancy: number; netPnl: number }): number {
+  const pf = Number.isFinite(r.profitFactor) ? Math.min(r.profitFactor, 3) : 3;
+  const wrPart = Math.max(0, Math.min(100, r.winRate));
+  const pfPart = (pf / 3) * 100;
+  const expPart = r.expectancy > 0 ? 100 : r.netPnl >= 0 ? 60 : 20;
+  return Math.round(wrPart * 0.35 + pfPart * 0.4 + expPart * 0.25);
+}
+
+function AIAdviceCard() {
+  const fn = useServerFn(generateDailyAdvice);
+  const [advice, setAdvice] = useState<string | null>(null);
+  const mut = useMutation({
+    mutationFn: async () => fn({ data: undefined as unknown as never }),
+    onSuccess: (res) => setAdvice(res.advice),
+    onError: (e) => setAdvice(e instanceof Error ? e.message : "Failed to fetch advice."),
+  });
+  return (
+    <Card className="glow-card p-6 border-border/40">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
+          <Bot className="h-3 w-3 text-primary" /> AI Daily Advice
+        </div>
+        <Button size="sm" variant="outline" onClick={() => mut.mutate()} disabled={mut.isPending} className="gap-2">
+          {mut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+          {advice ? "Refresh" : "Generate today's brief"}
+        </Button>
+      </div>
+      <p className="text-sm mt-3 leading-relaxed min-h-[3rem]">
+        {advice ?? "Tap the button for a 60-word brief on where to focus today, based on your last 7 days."}
+      </p>
+    </Card>
+  );
+}
