@@ -2,7 +2,7 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Award, BarChart3, Bell, BookOpen, Brain, Coins, FileDown, Gauge, Globe, LayoutDashboard, Layers, LineChart, LogOut, PlusCircle, Repeat, Settings, ShieldCheck, Sparkles, Target, Trophy, Upload, Wallet } from "lucide-react";
+import { Award, BarChart3, Bell, BookOpen, Brain, Coins, FileDown, Gauge, Globe, LayoutDashboard, Layers, Lightbulb, LineChart, LogOut, PlusCircle, Repeat, Settings, ShieldCheck, Sparkles, Target, Trophy, Upload, Wallet } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { useSuspenseQuery } from "@tanstack/react-query";
