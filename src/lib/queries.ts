@@ -211,3 +211,90 @@ export const challengeProgressQuery = () =>
       return data ?? [];
     },
   });
+export const tomQuery = () =>
+  queryOptions({
+    queryKey: ["tom_versions"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("tom_versions").select("*").order("version", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+export const behaviorTaxonomyQuery = () =>
+  queryOptions({
+    queryKey: ["behavior_taxonomy"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("behavior_taxonomy").select("*").order("category").order("name");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+export const behaviorEventsQuery = (accountId?: string) =>
+  queryOptions({
+    queryKey: ["behavior_events", accountId ?? "all"],
+    queryFn: async () => {
+      let q = supabase.from("behavior_events").select("*").order("occurred_at", { ascending: false }).limit(1000);
+      if (accountId) q = q.eq("account_id", accountId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+export const insightsQuery = (accountId?: string) =>
+  queryOptions({
+    queryKey: ["insights", accountId ?? "all"],
+    queryFn: async () => {
+      let q = supabase.from("insights").select("*").order("impact_estimate", { ascending: true });
+      if (accountId) q = q.eq("account_id", accountId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+export const insightEvidenceQuery = (insightId: string) =>
+  queryOptions({
+    queryKey: ["insight_evidence", insightId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("insight_evidence").select("*").eq("insight_id", insightId);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+export const rootCausesQuery = (accountId?: string) =>
+  queryOptions({
+    queryKey: ["root_causes", accountId ?? "all"],
+    queryFn: async () => {
+      let q = supabase.from("root_causes").select("*").order("impact_estimate", { ascending: true });
+      if (accountId) q = q.eq("account_id", accountId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+export const recommendationsQuery = (accountId?: string) =>
+  queryOptions({
+    queryKey: ["recommendations", accountId ?? "all"],
+    queryFn: async () => {
+      let q = supabase.from("recommendations").select("*").order("priority");
+      if (accountId) q = q.eq("account_id", accountId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+export const decisionScoresQuery = () =>
+  queryOptions({
+    queryKey: ["decision_scores"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("decision_scores").select("*");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });

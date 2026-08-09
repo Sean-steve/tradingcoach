@@ -148,6 +148,103 @@ export type Database = {
         }
         Relationships: []
       }
+      behavior_events: {
+        Row: {
+          account_id: string | null
+          category: Database["public"]["Enums"]["behavior_category"]
+          code: string
+          context: Json
+          created_at: string
+          detector: string | null
+          id: string
+          occurred_at: string
+          severity: number
+          source: Database["public"]["Enums"]["behavior_source"]
+          trade_id: string | null
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          category: Database["public"]["Enums"]["behavior_category"]
+          code: string
+          context?: Json
+          created_at?: string
+          detector?: string | null
+          id?: string
+          occurred_at?: string
+          severity?: number
+          source?: Database["public"]["Enums"]["behavior_source"]
+          trade_id?: string | null
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          category?: Database["public"]["Enums"]["behavior_category"]
+          code?: string
+          context?: Json
+          created_at?: string
+          detector?: string | null
+          id?: string
+          occurred_at?: string
+          severity?: number
+          source?: Database["public"]["Enums"]["behavior_source"]
+          trade_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "behavior_events_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "behavior_events_code_fkey"
+            columns: ["code"]
+            isOneToOne: false
+            referencedRelation: "behavior_taxonomy"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "behavior_events_trade_id_fkey"
+            columns: ["trade_id"]
+            isOneToOne: false
+            referencedRelation: "trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      behavior_taxonomy: {
+        Row: {
+          category: Database["public"]["Enums"]["behavior_category"]
+          code: string
+          created_at: string
+          default_severity: number
+          description: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["behavior_category"]
+          code: string
+          created_at?: string
+          default_severity?: number
+          description?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["behavior_category"]
+          code?: string
+          created_at?: string
+          default_severity?: number
+          description?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       challenge_progress: {
         Row: {
           challenge_id: string
@@ -337,6 +434,62 @@ export type Database = {
           },
         ]
       }
+      decision_scores: {
+        Row: {
+          created_at: string
+          entry_quality: number
+          exit_quality: number
+          id: string
+          notes: string | null
+          patience: number
+          plan_adherence: number
+          process_score: number
+          risk_control: number
+          source: Database["public"]["Enums"]["behavior_source"]
+          trade_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          entry_quality?: number
+          exit_quality?: number
+          id?: string
+          notes?: string | null
+          patience?: number
+          plan_adherence?: number
+          process_score?: number
+          risk_control?: number
+          source?: Database["public"]["Enums"]["behavior_source"]
+          trade_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          entry_quality?: number
+          exit_quality?: number
+          id?: string
+          notes?: string | null
+          patience?: number
+          plan_adherence?: number
+          process_score?: number
+          risk_control?: number
+          source?: Database["public"]["Enums"]["behavior_source"]
+          trade_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_scores_trade_id_fkey"
+            columns: ["trade_id"]
+            isOneToOne: true
+            referencedRelation: "trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       goals: {
         Row: {
           account_id: string | null
@@ -466,6 +619,134 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      insight_evidence: {
+        Row: {
+          created_at: string
+          detail: Json
+          id: string
+          insight_id: string
+          label: string
+          trade_id: string | null
+          user_id: string
+          value: string | null
+        }
+        Insert: {
+          created_at?: string
+          detail?: Json
+          id?: string
+          insight_id: string
+          label: string
+          trade_id?: string | null
+          user_id: string
+          value?: string | null
+        }
+        Update: {
+          created_at?: string
+          detail?: Json
+          id?: string
+          insight_id?: string
+          label?: string
+          trade_id?: string | null
+          user_id?: string
+          value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insight_evidence_insight_id_fkey"
+            columns: ["insight_id"]
+            isOneToOne: false
+            referencedRelation: "insights"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insight_evidence_trade_id_fkey"
+            columns: ["trade_id"]
+            isOneToOne: false
+            referencedRelation: "trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      insights: {
+        Row: {
+          account_id: string | null
+          baseline_value: number | null
+          category: string
+          claim: string
+          confidence: number
+          created_at: string
+          delta: number | null
+          detail: Json
+          generated_at: string
+          id: string
+          impact_estimate: number | null
+          insight_key: string
+          metric: string
+          min_sample: number
+          observed_value: number | null
+          sample_size: number
+          status: Database["public"]["Enums"]["insight_status"]
+          updated_at: string
+          user_id: string
+          window_end: string | null
+          window_start: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          baseline_value?: number | null
+          category: string
+          claim: string
+          confidence?: number
+          created_at?: string
+          delta?: number | null
+          detail?: Json
+          generated_at?: string
+          id?: string
+          impact_estimate?: number | null
+          insight_key: string
+          metric: string
+          min_sample?: number
+          observed_value?: number | null
+          sample_size?: number
+          status?: Database["public"]["Enums"]["insight_status"]
+          updated_at?: string
+          user_id: string
+          window_end?: string | null
+          window_start?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          baseline_value?: number | null
+          category?: string
+          claim?: string
+          confidence?: number
+          created_at?: string
+          delta?: number | null
+          detail?: Json
+          generated_at?: string
+          id?: string
+          impact_estimate?: number | null
+          insight_key?: string
+          metric?: string
+          min_sample?: number
+          observed_value?: number | null
+          sample_size?: number
+          status?: Database["public"]["Enums"]["insight_status"]
+          updated_at?: string
+          user_id?: string
+          window_end?: string | null
+          window_start?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insights_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       mistake_catalog: {
         Row: {
@@ -678,6 +959,138 @@ export type Database = {
           },
         ]
       }
+      recommendations: {
+        Row: {
+          account_id: string | null
+          action: string
+          confidence: number
+          created_at: string
+          id: string
+          impact_estimate: number | null
+          insight_id: string | null
+          priority: number
+          rationale: string | null
+          recommendation_key: string
+          resolved_at: string | null
+          root_cause_id: string | null
+          status: Database["public"]["Enums"]["recommendation_status"]
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          action: string
+          confidence?: number
+          created_at?: string
+          id?: string
+          impact_estimate?: number | null
+          insight_id?: string | null
+          priority?: number
+          rationale?: string | null
+          recommendation_key: string
+          resolved_at?: string | null
+          root_cause_id?: string | null
+          status?: Database["public"]["Enums"]["recommendation_status"]
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          action?: string
+          confidence?: number
+          created_at?: string
+          id?: string
+          impact_estimate?: number | null
+          insight_id?: string | null
+          priority?: number
+          rationale?: string | null
+          recommendation_key?: string
+          resolved_at?: string | null
+          root_cause_id?: string | null
+          status?: Database["public"]["Enums"]["recommendation_status"]
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recommendations_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recommendations_insight_id_fkey"
+            columns: ["insight_id"]
+            isOneToOne: false
+            referencedRelation: "insights"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recommendations_root_cause_id_fkey"
+            columns: ["root_cause_id"]
+            isOneToOne: false
+            referencedRelation: "root_causes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      root_causes: {
+        Row: {
+          account_id: string | null
+          cause_key: string
+          chain: Json
+          confidence: number
+          created_at: string
+          explanation: string | null
+          id: string
+          impact_estimate: number | null
+          insight_ids: string[]
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          cause_key: string
+          chain?: Json
+          confidence?: number
+          created_at?: string
+          explanation?: string | null
+          id?: string
+          impact_estimate?: number | null
+          insight_ids?: string[]
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          cause_key?: string
+          chain?: Json
+          confidence?: number
+          created_at?: string
+          explanation?: string | null
+          id?: string
+          impact_estimate?: number | null
+          insight_ids?: string[]
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "root_causes_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rule_violations: {
         Row: {
           created_at: string
@@ -774,6 +1187,60 @@ export type Database = {
           is_archived?: boolean
           name?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      tom_versions: {
+        Row: {
+          change_reason: string | null
+          created_at: string
+          id: string
+          identity: string | null
+          is_active: boolean
+          markets: string[]
+          non_negotiables: string[]
+          notes: string | null
+          risk_limits: Json
+          routines: Json
+          sessions: string[]
+          strategies: Json
+          updated_at: string
+          user_id: string
+          version: number
+        }
+        Insert: {
+          change_reason?: string | null
+          created_at?: string
+          id?: string
+          identity?: string | null
+          is_active?: boolean
+          markets?: string[]
+          non_negotiables?: string[]
+          notes?: string | null
+          risk_limits?: Json
+          routines?: Json
+          sessions?: string[]
+          strategies?: Json
+          updated_at?: string
+          user_id: string
+          version?: number
+        }
+        Update: {
+          change_reason?: string | null
+          created_at?: string
+          id?: string
+          identity?: string | null
+          is_active?: boolean
+          markets?: string[]
+          non_negotiables?: string[]
+          notes?: string | null
+          risk_limits?: Json
+          routines?: Json
+          sessions?: string[]
+          strategies?: Json
+          updated_at?: string
+          user_id?: string
+          version?: number
         }
         Relationships: []
       }
@@ -1073,6 +1540,13 @@ export type Database = {
         | "milestone"
         | "risk"
       badge_tier: "bronze" | "silver" | "gold" | "platinum"
+      behavior_category:
+        | "emotional"
+        | "decision"
+        | "discipline"
+        | "risk"
+        | "cognitive_bias"
+      behavior_source: "derived" | "manual"
       goal_metric:
         | "pnl"
         | "win_rate"
@@ -1084,6 +1558,8 @@ export type Database = {
         | "performance_score"
       goal_status: "active" | "achieved" | "failed" | "archived"
       habit_cadence: "daily" | "weekly"
+      insight_status: "validated" | "insufficient_evidence" | "invalidated"
+      recommendation_status: "active" | "accepted" | "dismissed" | "completed"
       review_period: "daily" | "weekly" | "monthly" | "quarterly" | "yearly"
       trade_direction: "long" | "short"
       trade_result: "win" | "loss" | "breakeven" | "open"
@@ -1240,6 +1716,14 @@ export const Constants = {
         "risk",
       ],
       badge_tier: ["bronze", "silver", "gold", "platinum"],
+      behavior_category: [
+        "emotional",
+        "decision",
+        "discipline",
+        "risk",
+        "cognitive_bias",
+      ],
+      behavior_source: ["derived", "manual"],
       goal_metric: [
         "pnl",
         "win_rate",
@@ -1252,6 +1736,8 @@ export const Constants = {
       ],
       goal_status: ["active", "achieved", "failed", "archived"],
       habit_cadence: ["daily", "weekly"],
+      insight_status: ["validated", "insufficient_evidence", "invalidated"],
+      recommendation_status: ["active", "accepted", "dismissed", "completed"],
       review_period: ["daily", "weekly", "monthly", "quarterly", "yearly"],
       trade_direction: ["long", "short"],
       trade_result: ["win", "loss", "breakeven", "open"],

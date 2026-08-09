@@ -2,7 +2,7 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Award, BarChart3, Bell, BookOpen, Brain, Coins, FileDown, Gauge, Globe, LayoutDashboard, Layers, LineChart, LogOut, PlusCircle, Repeat, Settings, ShieldCheck, Sparkles, Target, Trophy, Upload, Wallet } from "lucide-react";
+import { Award, BarChart3, Bell, BookOpen, Brain, Coins, FileDown, Gauge, Globe, LayoutDashboard, Layers, Lightbulb, LineChart, LogOut, PlusCircle, Repeat, Settings, ShieldCheck, Sparkles, Target, Trophy, Upload, Wallet } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { useSuspenseQuery } from "@tanstack/react-query";
@@ -17,6 +17,7 @@ const nav: { to: string; label: string; icon: React.ComponentType<{ className?: 
   { to: "/trades/new", label: "Log Trade", icon: PlusCircle },
   { to: "/import", label: "CSV Import", icon: Upload },
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
+  { to: "/insights", label: "Insights", icon: Lightbulb },
   { to: "/strategies", label: "Strategies", icon: Layers },
   { to: "/sessions", label: "Sessions", icon: Globe },
   { to: "/assets", label: "Assets", icon: Coins },
