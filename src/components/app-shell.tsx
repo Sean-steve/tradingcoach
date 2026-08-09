@@ -17,6 +17,7 @@ const nav: { to: string; label: string; icon: React.ComponentType<{ className?: 
   { to: "/trades/new", label: "Log Trade", icon: PlusCircle },
   { to: "/import", label: "CSV Import", icon: Upload },
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
+  { to: "/insights", label: "Insights", icon: Lightbulb },
   { to: "/strategies", label: "Strategies", icon: Layers },
   { to: "/sessions", label: "Sessions", icon: Globe },
   { to: "/assets", label: "Assets", icon: Coins },
