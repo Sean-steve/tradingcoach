@@ -13,13 +13,15 @@ const tradeByIdQuery = (id: string) =>
   queryOptions({
     queryKey: ["trade", id],
     queryFn: async () => {
-      const [{ data: trade, error }, { data: shots }, { data: mistakes }] = await Promise.all([
+      const [{ data: trade, error }, { data: shots }, { data: mistakes }, { data: score }, { data: events }] = await Promise.all([
         supabase.from("trades").select("*").eq("id", id).maybeSingle(),
         supabase.from("trade_screenshots").select("*").eq("trade_id", id).order("created_at"),
         supabase.from("trade_mistakes").select("*, mistake_catalog(name,category,severity,suggested_fix)").eq("trade_id", id),
+        supabase.from("decision_scores").select("*").eq("trade_id", id).maybeSingle(),
+        supabase.from("behavior_events").select("*").eq("trade_id", id).order("severity", { ascending: false }),
       ]);
       if (error) throw error;
-      return { trade, shots: shots ?? [], mistakes: mistakes ?? [] };
+      return { trade, shots: shots ?? [], mistakes: mistakes ?? [], score, events: events ?? [] };
     },
   });
 
