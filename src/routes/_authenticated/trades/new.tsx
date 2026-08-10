@@ -17,6 +17,8 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Loader2, Upload as UploadIcon, X } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
+import { useServerFn } from "@tanstack/react-start";
+import { runIntelligence } from "@/lib/intelligence.functions";
 
 export const Route = createFileRoute("/_authenticated/trades/new")({
   component: () => (
@@ -30,6 +32,7 @@ type TradeInsert = Database["public"]["Tables"]["trades"]["Insert"];
 
 function NewTrade() {
   const navigate = useNavigate();
+  const runPipeline = useServerFn(runIntelligence);
   const { data: accounts } = useSuspenseQuery(accountsQuery());
   const { data: strategies } = useSuspenseQuery(strategiesQuery());
   const { data: catalog } = useSuspenseQuery(mistakeCatalogQuery());
@@ -75,6 +78,12 @@ function NewTrade() {
     p_stress: 5,
     p_focus: 5,
     p_confidence: 5,
+    // decision quality (process, 1–5)
+    d_plan_adherence: 3,
+    d_entry_quality: 3,
+    d_risk_control: 3,
+    d_patience: 3,
+    d_exit_quality: 3,
   });
 
   const update = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm((f) => ({ ...f, [k]: v }));
@@ -206,6 +215,23 @@ function NewTrade() {
         confidence: form.p_confidence,
       });
 
+      // decision quality score (process, independent of P&L)
+      const dq = [form.d_plan_adherence, form.d_entry_quality, form.d_risk_control, form.d_patience, form.d_exit_quality];
+      await supabase.from("decision_scores").upsert(
+        {
+          user_id: userId,
+          trade_id: trade.id,
+          plan_adherence: form.d_plan_adherence,
+          entry_quality: form.d_entry_quality,
+          risk_control: form.d_risk_control,
+          patience: form.d_patience,
+          exit_quality: form.d_exit_quality,
+          process_score: Math.round((dq.reduce((s, v) => s + v, 0) / dq.length) * 20),
+          source: "manual",
+        },
+        { onConflict: "trade_id" },
+      );
+
       // update account balance
       const acct = accounts.find((a) => a.id === form.account_id);
       if (acct) {
@@ -213,6 +239,8 @@ function NewTrade() {
       }
 
       toast.success("Trade logged");
+      // refresh the intelligence layer in the background
+      runPipeline({ data: { accountId: form.account_id } }).catch(() => {});
       navigate({ to: "/trades" });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save trade");
@@ -397,6 +425,18 @@ function NewTrade() {
       </Card>
 
       <Card className="glow-card p-6 border-border/40 space-y-4">
+        <h2 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Decision quality (process, not P&amp;L)</h2>
+        <p className="text-xs text-muted-foreground -mt-2">Rate the decision 1–5 regardless of the outcome. This feeds the Process Score.</p>
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <ScoreInput label="Plan adherence" max={5} value={form.d_plan_adherence} onChange={(v) => update("d_plan_adherence", v)} />
+          <ScoreInput label="Entry quality" max={5} value={form.d_entry_quality} onChange={(v) => update("d_entry_quality", v)} />
+          <ScoreInput label="Risk control" max={5} value={form.d_risk_control} onChange={(v) => update("d_risk_control", v)} />
+          <ScoreInput label="Patience" max={5} value={form.d_patience} onChange={(v) => update("d_patience", v)} />
+          <ScoreInput label="Exit quality" max={5} value={form.d_exit_quality} onChange={(v) => update("d_exit_quality", v)} />
+        </div>
+      </Card>
+
+      <Card className="glow-card p-6 border-border/40 space-y-4">
         <h2 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Notes</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
@@ -482,14 +522,14 @@ function num(v: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function ScoreInput({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+function ScoreInput({ label, value, onChange, max = 10 }: { label: string; value: number; onChange: (v: number) => void; max?: number }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
         <Label className="text-xs text-muted-foreground">{label}</Label>
         <span className="number-mono text-sm">{value}</span>
       </div>
-      <input type="range" min={1} max={10} value={value} onChange={(e) => onChange(Number(e.target.value))} className="w-full accent-primary" />
+      <input type="range" min={1} max={max} value={value} onChange={(e) => onChange(Number(e.target.value))} className="w-full accent-primary" />
     </div>
   );
 }

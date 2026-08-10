@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense } from "react";
-import { accountsQuery, tradesQuery, tradeMistakesQuery, psychQuery } from "@/lib/queries";
+import { accountsQuery, tradesQuery, tradeMistakesQuery, psychQuery, recommendationsQuery } from "@/lib/queries";
 import { computeMetrics, performanceScore, consistencyIndex, rollup, bucketWeek, bucketMonth } from "@/lib/metrics";
 import type { TradeLike } from "@/lib/metrics";
 import { useActiveAccountId } from "@/lib/active-account";
@@ -33,6 +33,7 @@ function Dashboard() {
   const { data: trades } = useSuspenseQuery(tradesQuery(active?.id));
   const { data: mistakes } = useSuspenseQuery(tradeMistakesQuery());
   const { data: psych } = useSuspenseQuery(psychQuery());
+  const { data: recs } = useSuspenseQuery(recommendationsQuery(activeId ?? undefined));
 
   const startBal = Number(active?.starting_balance ?? 10000);
   const currency = "USD";
@@ -73,7 +74,8 @@ function Dashboard() {
 
   const equity = m.equityCurve.map((e, i) => ({ i, balance: Number(e.balance.toFixed(2)) }));
 
-  const missionText = suggestMission(m, score, dayPnl);
+  const topRec = recs.filter((r) => r.status === "active").sort((a, b) => a.priority - b.priority)[0];
+  const missionText = topRec ? topRec.action : suggestMission(m, score, dayPnl);
 
   return (
     <div className="p-8 max-w-[1600px] mx-auto space-y-6">
@@ -155,7 +157,18 @@ function Dashboard() {
             <div className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-2">
               <Sparkles className="h-3 w-3 text-primary" /> Today's Mission
             </div>
-            <p className="text-sm mt-2 leading-relaxed">{missionText}</p>
+            {topRec && <div className="text-sm font-semibold mt-2">{topRec.title}</div>}
+            <p className="text-sm mt-1 leading-relaxed">{missionText}</p>
+            {topRec ? (
+              <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
+                <span>Evidence-backed · {Math.round(Number(topRec.confidence) * 100)}% confidence</span>
+                <Link to="/insights" className="text-primary hover:underline">Why?</Link>
+              </div>
+            ) : (
+              <div className="mt-2 text-[11px] text-muted-foreground">
+                Heuristic. <Link to="/insights" className="text-primary hover:underline">Run intelligence</Link> for an evidence-backed mission.
+              </div>
+            )}
           </div>
           <div className="pt-3 border-t border-border/50 space-y-3">
             <ScoreBar label="Profitability" value={score.profitability} />
