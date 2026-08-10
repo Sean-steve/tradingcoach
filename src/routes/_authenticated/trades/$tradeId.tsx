@@ -91,6 +91,38 @@ function TradeDetail() {
         </Card>
       </div>
 
+      {data.score && (
+        <Card className="glow-card border-border/40 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="text-xs uppercase tracking-wider text-muted-foreground">Decision quality (process)</div>
+            <div className="flex items-baseline gap-2">
+              <span className="number-mono text-2xl font-bold">{Math.round(Number(data.score.process_score))}</span>
+              <span className="text-xs text-muted-foreground uppercase tracking-wider">{data.score.source}</span>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <Stat label="Plan adherence" value={`${data.score.plan_adherence}/5`} />
+            <Stat label="Entry quality" value={`${data.score.entry_quality}/5`} />
+            <Stat label="Risk control" value={`${data.score.risk_control}/5`} />
+            <Stat label="Patience" value={`${data.score.patience}/5`} />
+            <Stat label="Exit quality" value={`${data.score.exit_quality}/5`} />
+          </div>
+        </Card>
+      )}
+
+      {data.events.length > 0 && (
+        <Card className="glow-card border-border/40 p-6">
+          <div className="text-xs uppercase tracking-wider text-muted-foreground mb-3">Behavior events detected ({data.events.length})</div>
+          <div className="flex flex-wrap gap-2">
+            {data.events.map((e) => (
+              <Badge key={e.id} variant="outline" className={e.severity >= 4 ? "text-loss border-loss/40" : "text-muted-foreground"}>
+                {e.code.replace(/_/g, " ")} · {e.category} · sev {e.severity}
+              </Badge>
+            ))}
+          </div>
+        </Card>
+      )}
+
       {(t.pre_notes || t.post_notes) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {t.pre_notes && (
