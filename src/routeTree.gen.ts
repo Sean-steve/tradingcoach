@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedTwinRouteImport } from './routes/_authenticated/twin'
 import { Route as AuthenticatedStrategiesRouteImport } from './routes/_authenticated/strategies'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedSessionsRouteImport } from './routes/_authenticated/sessions'
@@ -52,6 +53,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedTwinRoute = AuthenticatedTwinRouteImport.update({
+  id: '/twin',
+  path: '/twin',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedStrategiesRoute = AuthenticatedStrategiesRouteImport.update({
   id: '/strategies',
@@ -214,6 +220,7 @@ export interface FileRoutesByFullPath {
   '/sessions': typeof AuthenticatedSessionsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/strategies': typeof AuthenticatedStrategiesRoute
+  '/twin': typeof AuthenticatedTwinRoute
   '/trades/$tradeId': typeof AuthenticatedTradesTradeIdRoute
   '/trades/new': typeof AuthenticatedTradesNewRoute
   '/trades/': typeof AuthenticatedTradesIndexRoute
@@ -244,6 +251,7 @@ export interface FileRoutesByTo {
   '/sessions': typeof AuthenticatedSessionsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/strategies': typeof AuthenticatedStrategiesRoute
+  '/twin': typeof AuthenticatedTwinRoute
   '/trades/$tradeId': typeof AuthenticatedTradesTradeIdRoute
   '/trades/new': typeof AuthenticatedTradesNewRoute
   '/trades': typeof AuthenticatedTradesIndexRoute
@@ -276,6 +284,7 @@ export interface FileRoutesById {
   '/_authenticated/sessions': typeof AuthenticatedSessionsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/strategies': typeof AuthenticatedStrategiesRoute
+  '/_authenticated/twin': typeof AuthenticatedTwinRoute
   '/_authenticated/trades/$tradeId': typeof AuthenticatedTradesTradeIdRoute
   '/_authenticated/trades/new': typeof AuthenticatedTradesNewRoute
   '/_authenticated/trades/': typeof AuthenticatedTradesIndexRoute
@@ -308,6 +317,7 @@ export interface FileRouteTypes {
     | '/sessions'
     | '/settings'
     | '/strategies'
+    | '/twin'
     | '/trades/$tradeId'
     | '/trades/new'
     | '/trades/'
@@ -338,6 +348,7 @@ export interface FileRouteTypes {
     | '/sessions'
     | '/settings'
     | '/strategies'
+    | '/twin'
     | '/trades/$tradeId'
     | '/trades/new'
     | '/trades'
@@ -369,6 +380,7 @@ export interface FileRouteTypes {
     | '/_authenticated/sessions'
     | '/_authenticated/settings'
     | '/_authenticated/strategies'
+    | '/_authenticated/twin'
     | '/_authenticated/trades/$tradeId'
     | '/_authenticated/trades/new'
     | '/_authenticated/trades/'
@@ -402,6 +414,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/twin': {
+      id: '/_authenticated/twin'
+      path: '/twin'
+      fullPath: '/twin'
+      preLoaderRoute: typeof AuthenticatedTwinRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/strategies': {
       id: '/_authenticated/strategies'
@@ -612,6 +631,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSessionsRoute: typeof AuthenticatedSessionsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedStrategiesRoute: typeof AuthenticatedStrategiesRoute
+  AuthenticatedTwinRoute: typeof AuthenticatedTwinRoute
   AuthenticatedTradesTradeIdRoute: typeof AuthenticatedTradesTradeIdRoute
   AuthenticatedTradesNewRoute: typeof AuthenticatedTradesNewRoute
   AuthenticatedTradesIndexRoute: typeof AuthenticatedTradesIndexRoute
@@ -641,6 +661,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSessionsRoute: AuthenticatedSessionsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedStrategiesRoute: AuthenticatedStrategiesRoute,
+  AuthenticatedTwinRoute: AuthenticatedTwinRoute,
   AuthenticatedTradesTradeIdRoute: AuthenticatedTradesTradeIdRoute,
   AuthenticatedTradesNewRoute: AuthenticatedTradesNewRoute,
   AuthenticatedTradesIndexRoute: AuthenticatedTradesIndexRoute,
