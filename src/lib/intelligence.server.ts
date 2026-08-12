@@ -48,6 +48,7 @@ export interface PipelineResult {
   insights_validated: number;
   root_causes: number;
   recommendations: { title: string; action: string; priority: number }[];
+  interventions_evaluated: number;
 }
 
 export async function runIntelligencePipeline(supabase: DB, userId: string, accountId: string): Promise<PipelineResult> {
@@ -248,6 +249,10 @@ export async function runIntelligencePipeline(supabase: DB, userId: string, acco
     if (error) throw error;
   }
 
+  // ---------- 5. Intervention outcome measurement ----------
+  const { refreshInterventionOutcomes } = await import("@/lib/interventions.server");
+  const ivOutcome = await refreshInterventionOutcomes(supabase, userId, accountId);
+
   return {
     account_id: accountId,
     trades_analyzed: trades.length,
@@ -257,6 +262,7 @@ export async function runIntelligencePipeline(supabase: DB, userId: string, acco
     insights_validated: insights.filter((i) => i.status === "validated").length,
     root_causes: causes.length,
     recommendations: recs.map((r) => ({ title: r.title, action: r.action, priority: r.priority })),
+    interventions_evaluated: ivOutcome.evaluated,
   };
 }
 

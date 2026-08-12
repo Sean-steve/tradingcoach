@@ -2,11 +2,11 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { accountsQuery, strategiesQuery, mistakeCatalogQuery, tradesQuery } from "@/lib/queries";
+import { accountsQuery, strategiesQuery, mistakeCatalogQuery, tradesQuery, interventionsQuery } from "@/lib/queries";
 import { sessionFromDate } from "@/lib/metrics";
 import { todayPnl, weekPnl } from "@/lib/metrics";
 import type { TradeLike } from "@/lib/metrics";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, ShieldAlert, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +19,7 @@ import { Loader2, Upload as UploadIcon, X } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 import { useServerFn } from "@tanstack/react-start";
 import { runIntelligence } from "@/lib/intelligence.functions";
+import { evaluateTrigger, type InterventionLike, type TriggerContext } from "@/lib/interventions";
 
 export const Route = createFileRoute("/_authenticated/trades/new")({
   component: () => (
@@ -37,12 +38,15 @@ function NewTrade() {
   const { data: strategies } = useSuspenseQuery(strategiesQuery());
   const { data: catalog } = useSuspenseQuery(mistakeCatalogQuery());
   const { data: allTrades } = useSuspenseQuery(tradesQuery());
+  const { data: interventions } = useSuspenseQuery(interventionsQuery());
 
   const [saving, setSaving] = useState(false);
   const [reflection, setReflection] = useState("");
   const [unlocked, setUnlocked] = useState<boolean>(false);
   const [screenshots, setScreenshots] = useState<{ file: File; kind: string; preview: string }[]>([]);
   const [selectedMistakes, setSelectedMistakes] = useState<string[]>([]);
+  const [acked, setAcked] = useState<string[]>([]);
+  const [overrides, setOverrides] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
     account_id: accounts[0]?.id ?? "",
     strategy_id: "",
@@ -98,6 +102,33 @@ function NewTrade() {
   const dailyLocked = dLimit != null && dayPnlNow <= -dLimit;
   const weeklyLocked = wLimit != null && weekPnlNow <= -wLimit;
   const isLocked = !unlocked && (dailyLocked || weeklyLocked);
+
+  // ---- Active guardrails (Intervention Layer) ----
+  const enteredDate = new Date(form.entered_at);
+  const closed = acctTrades.filter((t) => t.result !== "open").slice();
+  let lossStreak = 0;
+  for (const t of closed) {
+    if (Number(t.pnl) < 0) lossStreak++;
+    else break;
+  }
+  const dayKey = enteredDate.toISOString().slice(0, 10);
+  const tradesToday = acctTrades.filter((t) => String(t.entered_at).slice(0, 10) === dayKey).length;
+  const triggerCtx: TriggerContext = {
+    lossStreak,
+    stress: form.p_stress,
+    riskPct: form.risk_pct ? Number(form.risk_pct) : null,
+    tradesToday,
+    session: sessionFromDate(enteredDate),
+  };
+  const activeGuardrails = (interventions as unknown as InterventionLike[]).filter(
+    (i) => i.status === "active" && (i as unknown as { account_id: string | null }).account_id === selectedAcct?.id,
+  );
+  const evaluated = activeGuardrails.map((iv) => ({ iv, ...evaluateTrigger(iv, triggerCtx) }));
+  const fired = evaluated.filter((e) => e.triggered);
+  const blocking = fired.filter(
+    (e) => e.iv.hard_block && !acked.includes(e.iv.id) && (overrides[e.iv.id]?.trim().length ?? 0) < 20,
+  );
+  const guardrailBlocked = blocking.length > 0;
 
   const submitReflection = async () => {
     if (reflection.trim().length < 40) {
@@ -188,6 +219,25 @@ function NewTrade() {
 
       const { data: trade, error } = await supabase.from("trades").insert(insertData).select().single();
       if (error) throw error;
+
+      // guardrail adherence log — one row per evaluated guardrail
+      if (evaluated.length) {
+        await supabase.from("guardrail_checks").insert(
+          evaluated.map((e) => ({
+            user_id: userId,
+            intervention_id: e.iv.id,
+            trade_id: trade.id,
+            triggered: e.triggered,
+            outcome: (!e.triggered
+              ? "not_triggered"
+              : acked.includes(e.iv.id)
+                ? "respected"
+                : "overridden") as "respected" | "overridden" | "not_triggered",
+            note: overrides[e.iv.id]?.trim() || null,
+            context: { reason: e.reason, loss_streak: lossStreak, trades_today: tradesToday, stress: form.p_stress } as never,
+          })),
+        );
+      }
 
       // upload screenshots
       for (const s of screenshots) {
@@ -280,6 +330,45 @@ function NewTrade() {
         <h1 className="text-3xl font-bold tracking-tight">Log a trade</h1>
         <p className="text-sm text-muted-foreground mt-1">Discipline is measured trade by trade. Fill it honestly.</p>
       </div>
+
+      {fired.length > 0 && (
+        <Card className={`p-6 space-y-4 border-2 ${guardrailBlocked ? "border-loss/60" : "border-primary/40"}`}>
+          <div className="flex items-center gap-2">
+            {guardrailBlocked ? <ShieldAlert className="h-5 w-5 text-loss" /> : <ShieldCheck className="h-5 w-5 text-primary" />}
+            <h2 className="font-semibold">{fired.length} guardrail{fired.length > 1 ? "s" : ""} triggered</h2>
+          </div>
+          {fired.map((e) => (
+            <div key={e.iv.id} className="border border-border/50 rounded-lg p-4 space-y-2">
+              <div className="font-medium text-sm">{e.iv.title}</div>
+              <p className="text-sm">{e.iv.action}</p>
+              <div className="text-[11px] text-muted-foreground">{e.reason}{e.iv.evidence ? ` · ${e.iv.evidence}` : ""}</div>
+              <div className="flex items-center justify-between p-2 border border-border rounded-md">
+                <Label className="text-sm">I am following this guardrail</Label>
+                <Switch
+                  checked={acked.includes(e.iv.id)}
+                  onCheckedChange={(v) => setAcked((a) => (v ? [...a, e.iv.id] : a.filter((x) => x !== e.iv.id)))}
+                />
+              </div>
+              {!acked.includes(e.iv.id) && (
+                <div>
+                  <Label className="text-xs">
+                    Override reason {e.iv.hard_block ? "(required, min 20 characters)" : "(optional)"}
+                  </Label>
+                  <Textarea
+                    value={overrides[e.iv.id] ?? ""}
+                    onChange={(ev) => setOverrides((o) => ({ ...o, [e.iv.id]: ev.target.value }))}
+                    className="mt-1 min-h-16"
+                    placeholder="Why are you breaking your own rule?"
+                  />
+                </div>
+              )}
+            </div>
+          ))}
+          {guardrailBlocked && (
+            <p className="text-xs text-loss">Accept the guardrail or write an override reason before logging this trade.</p>
+          )}
+        </Card>
+      )}
 
       <Card className="glow-card p-6 border-border/40 space-y-4">
         <h2 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Setup</h2>
@@ -507,7 +596,7 @@ function NewTrade() {
 
       <div className="flex justify-end gap-2 sticky bottom-4">
         <Button type="button" variant="outline" onClick={() => navigate({ to: "/trades" })}>Cancel</Button>
-        <Button type="submit" disabled={saving} className="min-w-32">
+        <Button type="submit" disabled={saving || guardrailBlocked} className="min-w-32">
           {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />} Save trade
         </Button>
       </div>

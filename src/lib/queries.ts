@@ -298,3 +298,52 @@ export const decisionScoresQuery = () =>
       return data ?? [];
     },
   });
+
+export const interventionsQuery = (accountId?: string) =>
+  queryOptions({
+    queryKey: ["interventions", accountId ?? "all"],
+    queryFn: async () => {
+      let q = supabase.from("interventions").select("*").order("created_at", { ascending: false });
+      if (accountId) q = q.eq("account_id", accountId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+export const guardrailChecksQuery = () =>
+  queryOptions({
+    queryKey: ["guardrail_checks"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("guardrail_checks")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+export const twinScenariosQuery = (accountId?: string) =>
+  queryOptions({
+    queryKey: ["twin_scenarios", accountId ?? "all"],
+    queryFn: async () => {
+      let q = supabase.from("twin_scenarios").select("*").order("created_at", { ascending: false });
+      if (accountId) q = q.eq("account_id", accountId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+export const behaviorEventsAllQuery = (accountId?: string) =>
+  queryOptions({
+    queryKey: ["behavior_events_all", accountId ?? "all"],
+    queryFn: async () => {
+      let q = supabase.from("behavior_events").select("trade_id,code,category,severity,occurred_at");
+      if (accountId) q = q.eq("account_id", accountId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data ?? [];
+    },
+  });

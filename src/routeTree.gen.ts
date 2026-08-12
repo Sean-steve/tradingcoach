@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedTwinRouteImport } from './routes/_authenticated/twin'
 import { Route as AuthenticatedStrategiesRouteImport } from './routes/_authenticated/strategies'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedSessionsRouteImport } from './routes/_authenticated/sessions'
@@ -22,6 +23,7 @@ import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedPsychologyRouteImport } from './routes/_authenticated/psychology'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedManualRouteImport } from './routes/_authenticated/manual'
+import { Route as AuthenticatedInterventionsRouteImport } from './routes/_authenticated/interventions'
 import { Route as AuthenticatedInsightsRouteImport } from './routes/_authenticated/insights'
 import { Route as AuthenticatedImportRouteImport } from './routes/_authenticated/import'
 import { Route as AuthenticatedHabitsRouteImport } from './routes/_authenticated/habits'
@@ -51,6 +53,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedTwinRoute = AuthenticatedTwinRouteImport.update({
+  id: '/twin',
+  path: '/twin',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedStrategiesRoute = AuthenticatedStrategiesRouteImport.update({
   id: '/strategies',
@@ -103,6 +110,12 @@ const AuthenticatedManualRoute = AuthenticatedManualRouteImport.update({
   path: '/manual',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedInterventionsRoute =
+  AuthenticatedInterventionsRouteImport.update({
+    id: '/interventions',
+    path: '/interventions',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedInsightsRoute = AuthenticatedInsightsRouteImport.update({
   id: '/insights',
   path: '/insights',
@@ -196,6 +209,7 @@ export interface FileRoutesByFullPath {
   '/habits': typeof AuthenticatedHabitsRoute
   '/import': typeof AuthenticatedImportRoute
   '/insights': typeof AuthenticatedInsightsRoute
+  '/interventions': typeof AuthenticatedInterventionsRoute
   '/manual': typeof AuthenticatedManualRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/psychology': typeof AuthenticatedPsychologyRoute
@@ -206,6 +220,7 @@ export interface FileRoutesByFullPath {
   '/sessions': typeof AuthenticatedSessionsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/strategies': typeof AuthenticatedStrategiesRoute
+  '/twin': typeof AuthenticatedTwinRoute
   '/trades/$tradeId': typeof AuthenticatedTradesTradeIdRoute
   '/trades/new': typeof AuthenticatedTradesNewRoute
   '/trades/': typeof AuthenticatedTradesIndexRoute
@@ -225,6 +240,7 @@ export interface FileRoutesByTo {
   '/habits': typeof AuthenticatedHabitsRoute
   '/import': typeof AuthenticatedImportRoute
   '/insights': typeof AuthenticatedInsightsRoute
+  '/interventions': typeof AuthenticatedInterventionsRoute
   '/manual': typeof AuthenticatedManualRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/psychology': typeof AuthenticatedPsychologyRoute
@@ -235,6 +251,7 @@ export interface FileRoutesByTo {
   '/sessions': typeof AuthenticatedSessionsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/strategies': typeof AuthenticatedStrategiesRoute
+  '/twin': typeof AuthenticatedTwinRoute
   '/trades/$tradeId': typeof AuthenticatedTradesTradeIdRoute
   '/trades/new': typeof AuthenticatedTradesNewRoute
   '/trades': typeof AuthenticatedTradesIndexRoute
@@ -256,6 +273,7 @@ export interface FileRoutesById {
   '/_authenticated/habits': typeof AuthenticatedHabitsRoute
   '/_authenticated/import': typeof AuthenticatedImportRoute
   '/_authenticated/insights': typeof AuthenticatedInsightsRoute
+  '/_authenticated/interventions': typeof AuthenticatedInterventionsRoute
   '/_authenticated/manual': typeof AuthenticatedManualRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/psychology': typeof AuthenticatedPsychologyRoute
@@ -266,6 +284,7 @@ export interface FileRoutesById {
   '/_authenticated/sessions': typeof AuthenticatedSessionsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/strategies': typeof AuthenticatedStrategiesRoute
+  '/_authenticated/twin': typeof AuthenticatedTwinRoute
   '/_authenticated/trades/$tradeId': typeof AuthenticatedTradesTradeIdRoute
   '/_authenticated/trades/new': typeof AuthenticatedTradesNewRoute
   '/_authenticated/trades/': typeof AuthenticatedTradesIndexRoute
@@ -287,6 +306,7 @@ export interface FileRouteTypes {
     | '/habits'
     | '/import'
     | '/insights'
+    | '/interventions'
     | '/manual'
     | '/notifications'
     | '/psychology'
@@ -297,6 +317,7 @@ export interface FileRouteTypes {
     | '/sessions'
     | '/settings'
     | '/strategies'
+    | '/twin'
     | '/trades/$tradeId'
     | '/trades/new'
     | '/trades/'
@@ -316,6 +337,7 @@ export interface FileRouteTypes {
     | '/habits'
     | '/import'
     | '/insights'
+    | '/interventions'
     | '/manual'
     | '/notifications'
     | '/psychology'
@@ -326,6 +348,7 @@ export interface FileRouteTypes {
     | '/sessions'
     | '/settings'
     | '/strategies'
+    | '/twin'
     | '/trades/$tradeId'
     | '/trades/new'
     | '/trades'
@@ -346,6 +369,7 @@ export interface FileRouteTypes {
     | '/_authenticated/habits'
     | '/_authenticated/import'
     | '/_authenticated/insights'
+    | '/_authenticated/interventions'
     | '/_authenticated/manual'
     | '/_authenticated/notifications'
     | '/_authenticated/psychology'
@@ -356,6 +380,7 @@ export interface FileRouteTypes {
     | '/_authenticated/sessions'
     | '/_authenticated/settings'
     | '/_authenticated/strategies'
+    | '/_authenticated/twin'
     | '/_authenticated/trades/$tradeId'
     | '/_authenticated/trades/new'
     | '/_authenticated/trades/'
@@ -389,6 +414,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/twin': {
+      id: '/_authenticated/twin'
+      path: '/twin'
+      fullPath: '/twin'
+      preLoaderRoute: typeof AuthenticatedTwinRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/strategies': {
       id: '/_authenticated/strategies'
@@ -458,6 +490,13 @@ declare module '@tanstack/react-router' {
       path: '/manual'
       fullPath: '/manual'
       preLoaderRoute: typeof AuthenticatedManualRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/interventions': {
+      id: '/_authenticated/interventions'
+      path: '/interventions'
+      fullPath: '/interventions'
+      preLoaderRoute: typeof AuthenticatedInterventionsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/insights': {
@@ -581,6 +620,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedHabitsRoute: typeof AuthenticatedHabitsRoute
   AuthenticatedImportRoute: typeof AuthenticatedImportRoute
   AuthenticatedInsightsRoute: typeof AuthenticatedInsightsRoute
+  AuthenticatedInterventionsRoute: typeof AuthenticatedInterventionsRoute
   AuthenticatedManualRoute: typeof AuthenticatedManualRoute
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedPsychologyRoute: typeof AuthenticatedPsychologyRoute
@@ -591,6 +631,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSessionsRoute: typeof AuthenticatedSessionsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedStrategiesRoute: typeof AuthenticatedStrategiesRoute
+  AuthenticatedTwinRoute: typeof AuthenticatedTwinRoute
   AuthenticatedTradesTradeIdRoute: typeof AuthenticatedTradesTradeIdRoute
   AuthenticatedTradesNewRoute: typeof AuthenticatedTradesNewRoute
   AuthenticatedTradesIndexRoute: typeof AuthenticatedTradesIndexRoute
@@ -609,6 +650,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedHabitsRoute: AuthenticatedHabitsRoute,
   AuthenticatedImportRoute: AuthenticatedImportRoute,
   AuthenticatedInsightsRoute: AuthenticatedInsightsRoute,
+  AuthenticatedInterventionsRoute: AuthenticatedInterventionsRoute,
   AuthenticatedManualRoute: AuthenticatedManualRoute,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedPsychologyRoute: AuthenticatedPsychologyRoute,
@@ -619,6 +661,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSessionsRoute: AuthenticatedSessionsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedStrategiesRoute: AuthenticatedStrategiesRoute,
+  AuthenticatedTwinRoute: AuthenticatedTwinRoute,
   AuthenticatedTradesTradeIdRoute: AuthenticatedTradesTradeIdRoute,
   AuthenticatedTradesNewRoute: AuthenticatedTradesNewRoute,
   AuthenticatedTradesIndexRoute: AuthenticatedTradesIndexRoute,
@@ -635,13 +678,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
