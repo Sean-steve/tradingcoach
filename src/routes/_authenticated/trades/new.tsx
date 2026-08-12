@@ -331,6 +331,45 @@ function NewTrade() {
         <p className="text-sm text-muted-foreground mt-1">Discipline is measured trade by trade. Fill it honestly.</p>
       </div>
 
+      {fired.length > 0 && (
+        <Card className={`p-6 space-y-4 border-2 ${guardrailBlocked ? "border-loss/60" : "border-primary/40"}`}>
+          <div className="flex items-center gap-2">
+            {guardrailBlocked ? <ShieldAlert className="h-5 w-5 text-loss" /> : <ShieldCheck className="h-5 w-5 text-primary" />}
+            <h2 className="font-semibold">{fired.length} guardrail{fired.length > 1 ? "s" : ""} triggered</h2>
+          </div>
+          {fired.map((e) => (
+            <div key={e.iv.id} className="border border-border/50 rounded-lg p-4 space-y-2">
+              <div className="font-medium text-sm">{e.iv.title}</div>
+              <p className="text-sm">{e.iv.action}</p>
+              <div className="text-[11px] text-muted-foreground">{e.reason}{e.iv.evidence ? ` · ${e.iv.evidence}` : ""}</div>
+              <div className="flex items-center justify-between p-2 border border-border rounded-md">
+                <Label className="text-sm">I am following this guardrail</Label>
+                <Switch
+                  checked={acked.includes(e.iv.id)}
+                  onCheckedChange={(v) => setAcked((a) => (v ? [...a, e.iv.id] : a.filter((x) => x !== e.iv.id)))}
+                />
+              </div>
+              {!acked.includes(e.iv.id) && (
+                <div>
+                  <Label className="text-xs">
+                    Override reason {e.iv.hard_block ? "(required, min 20 characters)" : "(optional)"}
+                  </Label>
+                  <Textarea
+                    value={overrides[e.iv.id] ?? ""}
+                    onChange={(ev) => setOverrides((o) => ({ ...o, [e.iv.id]: ev.target.value }))}
+                    className="mt-1 min-h-16"
+                    placeholder="Why are you breaking your own rule?"
+                  />
+                </div>
+              )}
+            </div>
+          ))}
+          {guardrailBlocked && (
+            <p className="text-xs text-loss">Accept the guardrail or write an override reason before logging this trade.</p>
+          )}
+        </Card>
+      )}
+
       <Card className="glow-card p-6 border-border/40 space-y-4">
         <h2 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Setup</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -557,7 +596,7 @@ function NewTrade() {
 
       <div className="flex justify-end gap-2 sticky bottom-4">
         <Button type="button" variant="outline" onClick={() => navigate({ to: "/trades" })}>Cancel</Button>
-        <Button type="submit" disabled={saving} className="min-w-32">
+        <Button type="submit" disabled={saving || guardrailBlocked} className="min-w-32">
           {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />} Save trade
         </Button>
       </div>
