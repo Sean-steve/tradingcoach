@@ -546,6 +546,57 @@ export type Database = {
           },
         ]
       }
+      guardrail_checks: {
+        Row: {
+          context: Json
+          created_at: string
+          id: string
+          intervention_id: string
+          note: string | null
+          outcome: Database["public"]["Enums"]["guardrail_outcome"]
+          trade_id: string | null
+          triggered: boolean
+          user_id: string
+        }
+        Insert: {
+          context?: Json
+          created_at?: string
+          id?: string
+          intervention_id: string
+          note?: string | null
+          outcome?: Database["public"]["Enums"]["guardrail_outcome"]
+          trade_id?: string | null
+          triggered?: boolean
+          user_id: string
+        }
+        Update: {
+          context?: Json
+          created_at?: string
+          id?: string
+          intervention_id?: string
+          note?: string | null
+          outcome?: Database["public"]["Enums"]["guardrail_outcome"]
+          trade_id?: string | null
+          triggered?: boolean
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guardrail_checks_intervention_id_fkey"
+            columns: ["intervention_id"]
+            isOneToOne: false
+            referencedRelation: "interventions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guardrail_checks_trade_id_fkey"
+            columns: ["trade_id"]
+            isOneToOne: false
+            referencedRelation: "trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       habit_logs: {
         Row: {
           completed: boolean
@@ -744,6 +795,119 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      interventions: {
+        Row: {
+          account_id: string | null
+          action: string
+          baseline_rate: number | null
+          confidence: number
+          created_at: string
+          evidence: string | null
+          habit_id: string | null
+          hard_block: boolean
+          id: string
+          insight_id: string | null
+          observed_rate: number | null
+          recommendation_id: string | null
+          resolved_at: string | null
+          review_at: string
+          sample_size: number
+          starts_at: string
+          status: Database["public"]["Enums"]["intervention_status"]
+          target_behavior_code: string | null
+          target_rate: number | null
+          title: string
+          trend: Database["public"]["Enums"]["intervention_trend"]
+          trigger_config: Json
+          trigger_type: Database["public"]["Enums"]["intervention_trigger"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          action: string
+          baseline_rate?: number | null
+          confidence?: number
+          created_at?: string
+          evidence?: string | null
+          habit_id?: string | null
+          hard_block?: boolean
+          id?: string
+          insight_id?: string | null
+          observed_rate?: number | null
+          recommendation_id?: string | null
+          resolved_at?: string | null
+          review_at?: string
+          sample_size?: number
+          starts_at?: string
+          status?: Database["public"]["Enums"]["intervention_status"]
+          target_behavior_code?: string | null
+          target_rate?: number | null
+          title: string
+          trend?: Database["public"]["Enums"]["intervention_trend"]
+          trigger_config?: Json
+          trigger_type?: Database["public"]["Enums"]["intervention_trigger"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          action?: string
+          baseline_rate?: number | null
+          confidence?: number
+          created_at?: string
+          evidence?: string | null
+          habit_id?: string | null
+          hard_block?: boolean
+          id?: string
+          insight_id?: string | null
+          observed_rate?: number | null
+          recommendation_id?: string | null
+          resolved_at?: string | null
+          review_at?: string
+          sample_size?: number
+          starts_at?: string
+          status?: Database["public"]["Enums"]["intervention_status"]
+          target_behavior_code?: string | null
+          target_rate?: number | null
+          title?: string
+          trend?: Database["public"]["Enums"]["intervention_trend"]
+          trigger_config?: Json
+          trigger_type?: Database["public"]["Enums"]["intervention_trigger"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interventions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interventions_habit_id_fkey"
+            columns: ["habit_id"]
+            isOneToOne: false
+            referencedRelation: "habits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interventions_insight_id_fkey"
+            columns: ["insight_id"]
+            isOneToOne: false
+            referencedRelation: "insights"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interventions_recommendation_id_fkey"
+            columns: ["recommendation_id"]
+            isOneToOne: false
+            referencedRelation: "recommendations"
             referencedColumns: ["id"]
           },
         ]
@@ -1456,6 +1620,47 @@ export type Database = {
           },
         ]
       }
+      twin_scenarios: {
+        Row: {
+          account_id: string | null
+          created_at: string
+          id: string
+          name: string
+          result: Json
+          rules: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          result?: Json
+          rules?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          result?: Json
+          rules?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "twin_scenarios_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_badges: {
         Row: {
           badge_id: string
@@ -1557,8 +1762,23 @@ export type Database = {
         | "max_drawdown_pct"
         | "performance_score"
       goal_status: "active" | "achieved" | "failed" | "archived"
+      guardrail_outcome: "respected" | "overridden" | "not_triggered"
       habit_cadence: "daily" | "weekly"
       insight_status: "validated" | "insufficient_evidence" | "invalidated"
+      intervention_status: "active" | "succeeded" | "failed" | "archived"
+      intervention_trend:
+        | "improving"
+        | "flat"
+        | "regressing"
+        | "insufficient_evidence"
+      intervention_trigger:
+        | "loss_streak"
+        | "stress_level"
+        | "risk_above"
+        | "trades_today"
+        | "session"
+        | "behavior_code"
+        | "always"
       recommendation_status: "active" | "accepted" | "dismissed" | "completed"
       review_period: "daily" | "weekly" | "monthly" | "quarterly" | "yearly"
       trade_direction: "long" | "short"
@@ -1735,8 +1955,25 @@ export const Constants = {
         "performance_score",
       ],
       goal_status: ["active", "achieved", "failed", "archived"],
+      guardrail_outcome: ["respected", "overridden", "not_triggered"],
       habit_cadence: ["daily", "weekly"],
       insight_status: ["validated", "insufficient_evidence", "invalidated"],
+      intervention_status: ["active", "succeeded", "failed", "archived"],
+      intervention_trend: [
+        "improving",
+        "flat",
+        "regressing",
+        "insufficient_evidence",
+      ],
+      intervention_trigger: [
+        "loss_streak",
+        "stress_level",
+        "risk_above",
+        "trades_today",
+        "session",
+        "behavior_code",
+        "always",
+      ],
       recommendation_status: ["active", "accepted", "dismissed", "completed"],
       review_period: ["daily", "weekly", "monthly", "quarterly", "yearly"],
       trade_direction: ["long", "short"],
