@@ -68,6 +68,78 @@ export type Database = {
         }
         Relationships: []
       }
+      advice_outcomes: {
+        Row: {
+          accepted: boolean
+          account_id: string | null
+          advice_key: string
+          advice_type: string
+          checks_total: number
+          created_at: string
+          dismissed: boolean
+          id: string
+          intervention_id: string | null
+          measured_at: string
+          respected_rate: number | null
+          title: string | null
+          updated_at: string
+          user_id: string
+          weight: number
+          worked: boolean | null
+        }
+        Insert: {
+          accepted?: boolean
+          account_id?: string | null
+          advice_key: string
+          advice_type: string
+          checks_total?: number
+          created_at?: string
+          dismissed?: boolean
+          id?: string
+          intervention_id?: string | null
+          measured_at?: string
+          respected_rate?: number | null
+          title?: string | null
+          updated_at?: string
+          user_id: string
+          weight?: number
+          worked?: boolean | null
+        }
+        Update: {
+          accepted?: boolean
+          account_id?: string | null
+          advice_key?: string
+          advice_type?: string
+          checks_total?: number
+          created_at?: string
+          dismissed?: boolean
+          id?: string
+          intervention_id?: string | null
+          measured_at?: string
+          respected_rate?: number | null
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+          weight?: number
+          worked?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "advice_outcomes_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "advice_outcomes_intervention_id_fkey"
+            columns: ["intervention_id"]
+            isOneToOne: false
+            referencedRelation: "interventions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       allocation_rules: {
         Row: {
           account_id: string
@@ -546,6 +618,109 @@ export type Database = {
           },
         ]
       }
+      graph_edges: {
+        Row: {
+          account_id: string | null
+          confidence: number
+          created_at: string
+          detail: Json
+          edge_key: string
+          id: string
+          impact_estimate: number | null
+          relation: string
+          sample_size: number
+          source_key: string
+          target_key: string
+          user_id: string
+          weight: number
+        }
+        Insert: {
+          account_id?: string | null
+          confidence?: number
+          created_at?: string
+          detail?: Json
+          edge_key: string
+          id?: string
+          impact_estimate?: number | null
+          relation: string
+          sample_size?: number
+          source_key: string
+          target_key: string
+          user_id: string
+          weight?: number
+        }
+        Update: {
+          account_id?: string | null
+          confidence?: number
+          created_at?: string
+          detail?: Json
+          edge_key?: string
+          id?: string
+          impact_estimate?: number | null
+          relation?: string
+          sample_size?: number
+          source_key?: string
+          target_key?: string
+          user_id?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "graph_edges_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      graph_nodes: {
+        Row: {
+          account_id: string | null
+          created_at: string
+          detail: Json
+          id: string
+          impact_estimate: number | null
+          label: string
+          node_key: string
+          node_type: string
+          occurrences: number
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          created_at?: string
+          detail?: Json
+          id?: string
+          impact_estimate?: number | null
+          label: string
+          node_key: string
+          node_type: string
+          occurrences?: number
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          created_at?: string
+          detail?: Json
+          id?: string
+          impact_estimate?: number | null
+          label?: string
+          node_key?: string
+          node_type?: string
+          occurrences?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "graph_nodes_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       guardrail_checks: {
         Row: {
           context: Json
@@ -715,6 +890,71 @@ export type Database = {
             columns: ["trade_id"]
             isOneToOne: false
             referencedRelation: "trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      insight_lifecycle: {
+        Row: {
+          account_id: string | null
+          archived_reason: string | null
+          category: string | null
+          claim: string
+          confirmations: number
+          contradictions: number
+          created_at: string
+          first_seen_at: string
+          id: string
+          insight_key: string
+          last_confirmed_at: string | null
+          last_observed_value: number | null
+          last_seen_at: string
+          status: Database["public"]["Enums"]["lifecycle_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          archived_reason?: string | null
+          category?: string | null
+          claim: string
+          confirmations?: number
+          contradictions?: number
+          created_at?: string
+          first_seen_at?: string
+          id?: string
+          insight_key: string
+          last_confirmed_at?: string | null
+          last_observed_value?: number | null
+          last_seen_at?: string
+          status?: Database["public"]["Enums"]["lifecycle_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          archived_reason?: string | null
+          category?: string | null
+          claim?: string
+          confirmations?: number
+          contradictions?: number
+          created_at?: string
+          first_seen_at?: string
+          id?: string
+          insight_key?: string
+          last_confirmed_at?: string | null
+          last_observed_value?: number | null
+          last_seen_at?: string
+          status?: Database["public"]["Enums"]["lifecycle_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insight_lifecycle_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -908,6 +1148,53 @@ export type Database = {
             columns: ["recommendation_id"]
             isOneToOne: false
             referencedRelation: "recommendations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      memory_entries: {
+        Row: {
+          account_id: string | null
+          body: string | null
+          created_at: string
+          entry_key: string | null
+          id: string
+          kind: Database["public"]["Enums"]["memory_kind"]
+          occurred_at: string
+          refs: Json
+          title: string
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          body?: string | null
+          created_at?: string
+          entry_key?: string | null
+          id?: string
+          kind: Database["public"]["Enums"]["memory_kind"]
+          occurred_at?: string
+          refs?: Json
+          title: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          body?: string | null
+          created_at?: string
+          entry_key?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["memory_kind"]
+          occurred_at?: string
+          refs?: Json
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "memory_entries_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -1779,6 +2066,14 @@ export type Database = {
         | "session"
         | "behavior_code"
         | "always"
+      lifecycle_status: "emerging" | "durable" | "archived"
+      memory_kind:
+        | "discovery"
+        | "change"
+        | "regression"
+        | "milestone"
+        | "manual_change"
+        | "intervention"
       recommendation_status: "active" | "accepted" | "dismissed" | "completed"
       review_period: "daily" | "weekly" | "monthly" | "quarterly" | "yearly"
       trade_direction: "long" | "short"
@@ -1973,6 +2268,15 @@ export const Constants = {
         "session",
         "behavior_code",
         "always",
+      ],
+      lifecycle_status: ["emerging", "durable", "archived"],
+      memory_kind: [
+        "discovery",
+        "change",
+        "regression",
+        "milestone",
+        "manual_change",
+        "intervention",
       ],
       recommendation_status: ["active", "accepted", "dismissed", "completed"],
       review_period: ["daily", "weekly", "monthly", "quarterly", "yearly"],
