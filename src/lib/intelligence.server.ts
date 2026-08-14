@@ -429,11 +429,14 @@ export async function runIntelligencePipeline(supabase: DB, userId: string, acco
 
 /** Validated insights + the active operating manual — the only context the coach may use. */
 export async function loadTruthContext(supabase: DB, userId: string, accountId: string) {
-  const [{ data: insights }, { data: causes }, { data: recs }, { data: toms }] = await Promise.all([
+  const [{ data: insights }, { data: causes }, { data: recs }, { data: toms }, { data: memory }, { data: gEdges }, { data: outcomes }] = await Promise.all([
     supabase.from("insights").select("*").eq("user_id", userId).eq("account_id", accountId).eq("status", "validated").order("impact_estimate", { ascending: true }).limit(15),
     supabase.from("root_causes").select("*").eq("user_id", userId).eq("account_id", accountId),
     supabase.from("recommendations").select("*").eq("user_id", userId).eq("account_id", accountId).eq("status", "active").order("priority"),
     supabase.from("tom_versions").select("*").eq("user_id", userId).eq("is_active", true).limit(1),
+    supabase.from("memory_entries").select("kind,title,body,occurred_at").eq("user_id", userId).eq("account_id", accountId).order("occurred_at", { ascending: false }).limit(12),
+    supabase.from("graph_edges").select("source_key,target_key,relation,weight,sample_size,confidence,impact_estimate,detail").eq("user_id", userId).eq("account_id", accountId).order("impact_estimate", { ascending: true }).limit(10),
+    supabase.from("advice_outcomes").select("advice_type,accepted,dismissed,respected_rate,worked,weight").eq("user_id", userId).eq("account_id", accountId),
   ]);
   const tom = toms?.[0];
   return {
@@ -457,6 +460,12 @@ export async function loadTruthContext(supabase: DB, userId: string, accountId: 
     })),
     root_causes: (causes ?? []).map((c) => ({ title: c.title, explanation: c.explanation, confidence: Number(c.confidence) })),
     open_recommendations: (recs ?? []).map((r) => ({ priority: r.priority, title: r.title, action: r.action })),
+    memory_timeline: (memory ?? []).map((m) => ({ kind: m.kind, title: m.title, when: m.occurred_at.slice(0, 10) })),
+    graph_damage_edges: (gEdges ?? [])
+      .filter((e) => e.relation === "hurts")
+      .slice(0, 5)
+      .map((e) => ({ from: e.source_key, to: e.target_key, sample_size: e.sample_size, confidence: Number(e.confidence), impact: Number(e.impact_estimate ?? 0) })),
+    advice_history: (outcomes ?? []).map((o) => ({ type: o.advice_type, accepted: o.accepted, dismissed: o.dismissed, respected_rate: o.respected_rate, worked: o.worked })),
   };
 }
 
