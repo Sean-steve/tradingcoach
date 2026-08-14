@@ -105,6 +105,9 @@ PERIOD_METRICS: ${JSON.stringify(summaryStats)}
 VALIDATED_INSIGHTS: ${JSON.stringify(truth.validated_insights)}
 ROOT_CAUSES: ${JSON.stringify(truth.root_causes)}
 OPEN_RECOMMENDATIONS: ${JSON.stringify(truth.open_recommendations)}
+MEMORY_TIMELINE: ${JSON.stringify(truth.memory_timeline)}
+DAMAGE_CHAINS: ${JSON.stringify(truth.graph_damage_edges)}
+PAST_ADVICE_RESPONSE: ${JSON.stringify(truth.advice_history)}
 
 Return ONLY this JSON:
 {
@@ -115,6 +118,8 @@ Return ONLY this JSON:
 Rules:
 - Every finding must follow the pattern: statement, then the evidence behind it (sample size, confidence, or the exact metric).
 - Every recommendation must be behavioural and executable next session. Never market-directional.
+- Use MEMORY_TIMELINE to reference history explicitly when relevant ("found in June, fixed in July, returned last week").
+- Use PAST_ADVICE_RESPONSE: do not repeat advice types the trader consistently dismissed; prefer types that worked.
 - If VALIDATED_INSIGHTS is empty, say the system does not yet have enough evidence and recommend what to log to reach it.
 - If trades=0, say so. Never fabricate data.
 - No emojis, no exclamation marks.`;

@@ -347,3 +347,63 @@ export const behaviorEventsAllQuery = (accountId?: string) =>
       return data ?? [];
     },
   });
+
+export const memoryEntriesQuery = (accountId?: string) =>
+  queryOptions({
+    queryKey: ["memory_entries", accountId ?? "all"],
+    queryFn: async () => {
+      let q = supabase.from("memory_entries").select("*").order("occurred_at", { ascending: false }).limit(300);
+      if (accountId) q = q.eq("account_id", accountId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+export const insightLifecycleQuery = (accountId?: string) =>
+  queryOptions({
+    queryKey: ["insight_lifecycle", accountId ?? "all"],
+    queryFn: async () => {
+      let q = supabase.from("insight_lifecycle").select("*").order("confirmations", { ascending: false });
+      if (accountId) q = q.eq("account_id", accountId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+export const adviceOutcomesQuery = (accountId?: string) =>
+  queryOptions({
+    queryKey: ["advice_outcomes", accountId ?? "all"],
+    queryFn: async () => {
+      let q = supabase.from("advice_outcomes").select("*").order("weight", { ascending: false });
+      if (accountId) q = q.eq("account_id", accountId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+export const graphNodesQuery = (accountId?: string) =>
+  queryOptions({
+    queryKey: ["graph_nodes", accountId ?? "all"],
+    queryFn: async () => {
+      let q = supabase.from("graph_nodes").select("*");
+      if (accountId) q = q.eq("account_id", accountId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+export const graphEdgesQuery = (accountId?: string) =>
+  queryOptions({
+    queryKey: ["graph_edges", accountId ?? "all"],
+    queryFn: async () => {
+      let q = supabase.from("graph_edges").select("*");
+      if (accountId) q = q.eq("account_id", accountId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
