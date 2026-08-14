@@ -14,6 +14,9 @@ import {
   type ManualLimits,
 } from "@/lib/behavior";
 import { computeInsights, buildRootCauses, buildRecommendations, type TruthTrade } from "@/lib/truth";
+import { diffInsights, computeMilestones, type LifecycleRow, type MemoryEntryDraft } from "@/lib/memory";
+import { buildGraph, type GraphInsight } from "@/lib/graph";
+import { scoreAdvice, applyMetaWeights, type RecLike, type IvLike, type CheckLike } from "@/lib/meta";
 
 type DB = SupabaseClient<Database>;
 
@@ -49,6 +52,10 @@ export interface PipelineResult {
   root_causes: number;
   recommendations: { title: string; action: string; priority: number }[];
   interventions_evaluated: number;
+  memory_entries: number;
+  graph_nodes: number;
+  graph_edges: number;
+  advice_scored: number;
 }
 
 export async function runIntelligencePipeline(supabase: DB, userId: string, accountId: string): Promise<PipelineResult> {
@@ -215,14 +222,89 @@ export async function runIntelligencePipeline(supabase: DB, userId: string, acco
     for (const row of data ?? []) causeIdByKey.set(row.cause_key, row.id);
   }
 
+  // ---------- 3b. Long-term memory: lifecycle diff + timeline ----------
+  const { data: lifecycleRows } = await supabase
+    .from("insight_lifecycle")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("account_id", accountId);
+  const prevLifecycle = (lifecycleRows ?? []).map((r) => ({
+    insight_key: r.insight_key,
+    claim: r.claim,
+    category: r.category,
+    first_seen_at: r.first_seen_at,
+    last_confirmed_at: r.last_confirmed_at,
+    confirmations: r.confirmations,
+    contradictions: r.contradictions,
+    last_observed_value: r.last_observed_value == null ? null : Number(r.last_observed_value),
+    status: r.status,
+  })) as LifecycleRow[];
+
+  const diff = diffInsights(
+    prevLifecycle,
+    insights.map((i) => ({
+      insight_key: i.insight_key,
+      claim: i.claim,
+      category: i.category,
+      status: i.status,
+      observed_value: Number(i.observed_value ?? 0),
+      delta: Number(i.delta ?? 0),
+      impact_estimate: Number(i.impact_estimate ?? 0),
+    })),
+    now,
+  );
+
+  if (diff.lifecycle.length) {
+    const { error } = await supabase
+      .from("insight_lifecycle")
+      .upsert(
+        diff.lifecycle.map((l) => ({ user_id: userId, account_id: accountId, ...l })),
+        { onConflict: "user_id,account_id,insight_key" },
+      );
+    if (error) throw error;
+  }
+
   // ---------- 4. Arbitrated recommendations (preserve user decisions) ----------
-  const recs = buildRecommendations(insights, causes);
+  const baseRecs = buildRecommendations(insights, causes);
   const { data: existingRecs } = await supabase
     .from("recommendations")
-    .select("recommendation_key,status,resolved_at")
+    .select("id,recommendation_key,title,status,resolved_at")
     .eq("user_id", userId)
     .eq("account_id", accountId);
   const prior = new Map((existingRecs ?? []).map((r) => [r.recommendation_key, r]));
+
+  // meta-learning: grade the advice already given, then re-weight priority
+  const [{ data: ivRows }, { data: checkRows }] = await Promise.all([
+    supabase.from("interventions").select("*").eq("user_id", userId).eq("account_id", accountId),
+    supabase.from("guardrail_checks").select("intervention_id,triggered,outcome").eq("user_id", userId),
+  ]);
+  const outcomes = scoreAdvice(
+    (existingRecs ?? []) as unknown as RecLike[],
+    (ivRows ?? []) as unknown as IvLike[],
+    (checkRows ?? []) as unknown as CheckLike[],
+  );
+  if (outcomes.length) {
+    const { error } = await supabase.from("advice_outcomes").upsert(
+      outcomes.map((o) => ({
+        user_id: userId,
+        account_id: accountId,
+        advice_key: o.advice_key,
+        advice_type: o.advice_type,
+        title: o.title,
+        intervention_id: o.intervention_id,
+        accepted: o.accepted,
+        dismissed: o.dismissed,
+        respected_rate: o.respected_rate,
+        checks_total: o.checks_total,
+        worked: o.worked,
+        weight: o.weight,
+        measured_at: now.toISOString(),
+      })),
+      { onConflict: "user_id,account_id,advice_key" },
+    );
+    if (error) throw error;
+  }
+  const recs = applyMetaWeights(baseRecs, outcomes);
 
   await supabase.from("recommendations").delete().eq("user_id", userId).eq("account_id", accountId);
   if (recs.length) {
@@ -249,9 +331,84 @@ export async function runIntelligencePipeline(supabase: DB, userId: string, acco
     if (error) throw error;
   }
 
+  // ---------- 4b. Knowledge graph rebuild ----------
+  const graph = buildGraph(
+    insights.map((i) => ({
+      insight_key: i.insight_key,
+      category: i.category,
+      claim: i.claim,
+      status: i.status,
+      sample_size: i.sample_size,
+      delta: Number(i.delta ?? 0),
+      confidence: Number(i.confidence ?? 0),
+      impact_estimate: Number(i.impact_estimate ?? 0),
+      detail: (i.detail ?? {}) as Record<string, unknown>,
+    })) as GraphInsight[],
+    eventsByTrade,
+  );
+  await supabase.from("graph_edges").delete().eq("user_id", userId).eq("account_id", accountId);
+  await supabase.from("graph_nodes").delete().eq("user_id", userId).eq("account_id", accountId);
+  for (const chunk of chunks(graph.nodes, 300)) {
+    const { error } = await supabase.from("graph_nodes").insert(
+      chunk.map((n) => ({ user_id: userId, account_id: accountId, ...n, detail: n.detail as never })),
+    );
+    if (error) throw error;
+  }
+  for (const chunk of chunks(graph.edges, 300)) {
+    const { error } = await supabase.from("graph_edges").insert(
+      chunk.map((e) => ({
+        user_id: userId,
+        account_id: accountId,
+        ...e,
+        detail: { ...e.detail, damage_path: graph.damagePath.keys.includes(e.source_key) } as never,
+      })),
+    );
+    if (error) throw error;
+  }
+
   // ---------- 5. Intervention outcome measurement ----------
   const { refreshInterventionOutcomes } = await import("@/lib/interventions.server");
   const ivOutcome = await refreshInterventionOutcomes(supabase, userId, accountId);
+
+  // ---------- 6. Memory timeline (milestones + diff entries, deduped) ----------
+  const milestones = computeMilestones(
+    trades.map((t) => ({
+      entered_at: t.entered_at,
+      exited_at: t.exited_at ?? null,
+      pnl: (t as unknown as { pnl: number }).pnl,
+      result: (t as unknown as { result: string }).result,
+      followed_plan: (t as unknown as { followed_plan: boolean | null }).followed_plan ?? null,
+    })),
+    ((ivRows ?? []) as unknown as { title: string; status: string; baseline_rate: number | null; observed_rate: number | null }[]),
+    now,
+  );
+  const allEntries: MemoryEntryDraft[] = [...diff.entries, ...milestones];
+  let memoryWritten = 0;
+  if (allEntries.length) {
+    const { data: existingEntries } = await supabase
+      .from("memory_entries")
+      .select("entry_key")
+      .eq("user_id", userId)
+      .eq("account_id", accountId);
+    const seen = new Set((existingEntries ?? []).map((e) => e.entry_key));
+    const fresh = allEntries.filter((e) => !seen.has(e.entry_key));
+    for (const chunk of chunks(fresh, 200)) {
+      const { error } = await supabase.from("memory_entries").insert(
+        chunk.map((e) => ({
+          user_id: userId,
+          account_id: accountId,
+          kind: e.kind,
+          title: e.title,
+          body: e.body,
+          entry_key: e.entry_key,
+          refs: e.refs as never,
+          occurred_at: e.occurred_at,
+        })),
+      );
+      if (error) throw error;
+      memoryWritten += chunk.length;
+    }
+  }
 
   return {
     account_id: accountId,
@@ -263,6 +420,10 @@ export async function runIntelligencePipeline(supabase: DB, userId: string, acco
     root_causes: causes.length,
     recommendations: recs.map((r) => ({ title: r.title, action: r.action, priority: r.priority })),
     interventions_evaluated: ivOutcome.evaluated,
+    memory_entries: memoryWritten,
+    graph_nodes: graph.nodes.length,
+    graph_edges: graph.edges.length,
+    advice_scored: outcomes.length,
   };
 }
 
