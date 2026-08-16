@@ -22,6 +22,7 @@ import { Route as AuthenticatedRewardsRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedPsychologyRouteImport } from './routes/_authenticated/psychology'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
+import { Route as AuthenticatedMemoryRouteImport } from './routes/_authenticated/memory'
 import { Route as AuthenticatedManualRouteImport } from './routes/_authenticated/manual'
 import { Route as AuthenticatedInterventionsRouteImport } from './routes/_authenticated/interventions'
 import { Route as AuthenticatedInsightsRouteImport } from './routes/_authenticated/insights'
@@ -105,6 +106,11 @@ const AuthenticatedNotificationsRoute =
     path: '/notifications',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedMemoryRoute = AuthenticatedMemoryRouteImport.update({
+  id: '/memory',
+  path: '/memory',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedManualRoute = AuthenticatedManualRouteImport.update({
   id: '/manual',
   path: '/manual',
@@ -211,6 +217,7 @@ export interface FileRoutesByFullPath {
   '/insights': typeof AuthenticatedInsightsRoute
   '/interventions': typeof AuthenticatedInterventionsRoute
   '/manual': typeof AuthenticatedManualRoute
+  '/memory': typeof AuthenticatedMemoryRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/psychology': typeof AuthenticatedPsychologyRoute
   '/reports': typeof AuthenticatedReportsRoute
@@ -242,6 +249,7 @@ export interface FileRoutesByTo {
   '/insights': typeof AuthenticatedInsightsRoute
   '/interventions': typeof AuthenticatedInterventionsRoute
   '/manual': typeof AuthenticatedManualRoute
+  '/memory': typeof AuthenticatedMemoryRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/psychology': typeof AuthenticatedPsychologyRoute
   '/reports': typeof AuthenticatedReportsRoute
@@ -275,6 +283,7 @@ export interface FileRoutesById {
   '/_authenticated/insights': typeof AuthenticatedInsightsRoute
   '/_authenticated/interventions': typeof AuthenticatedInterventionsRoute
   '/_authenticated/manual': typeof AuthenticatedManualRoute
+  '/_authenticated/memory': typeof AuthenticatedMemoryRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/psychology': typeof AuthenticatedPsychologyRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
@@ -308,6 +317,7 @@ export interface FileRouteTypes {
     | '/insights'
     | '/interventions'
     | '/manual'
+    | '/memory'
     | '/notifications'
     | '/psychology'
     | '/reports'
@@ -339,6 +349,7 @@ export interface FileRouteTypes {
     | '/insights'
     | '/interventions'
     | '/manual'
+    | '/memory'
     | '/notifications'
     | '/psychology'
     | '/reports'
@@ -371,6 +382,7 @@ export interface FileRouteTypes {
     | '/_authenticated/insights'
     | '/_authenticated/interventions'
     | '/_authenticated/manual'
+    | '/_authenticated/memory'
     | '/_authenticated/notifications'
     | '/_authenticated/psychology'
     | '/_authenticated/reports'
@@ -483,6 +495,13 @@ declare module '@tanstack/react-router' {
       path: '/notifications'
       fullPath: '/notifications'
       preLoaderRoute: typeof AuthenticatedNotificationsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/memory': {
+      id: '/_authenticated/memory'
+      path: '/memory'
+      fullPath: '/memory'
+      preLoaderRoute: typeof AuthenticatedMemoryRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/manual': {
@@ -622,6 +641,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedInsightsRoute: typeof AuthenticatedInsightsRoute
   AuthenticatedInterventionsRoute: typeof AuthenticatedInterventionsRoute
   AuthenticatedManualRoute: typeof AuthenticatedManualRoute
+  AuthenticatedMemoryRoute: typeof AuthenticatedMemoryRoute
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedPsychologyRoute: typeof AuthenticatedPsychologyRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
@@ -652,6 +672,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedInsightsRoute: AuthenticatedInsightsRoute,
   AuthenticatedInterventionsRoute: AuthenticatedInterventionsRoute,
   AuthenticatedManualRoute: AuthenticatedManualRoute,
+  AuthenticatedMemoryRoute: AuthenticatedMemoryRoute,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedPsychologyRoute: AuthenticatedPsychologyRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
