@@ -140,6 +140,47 @@ export type Database = {
           },
         ]
       }
+      ai_request_log: {
+        Row: {
+          account_id: string | null
+          allowed: boolean
+          created_at: string
+          duration_ms: number | null
+          fn: string
+          id: string
+          reason: string | null
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          allowed?: boolean
+          created_at?: string
+          duration_ms?: number | null
+          fn: string
+          id?: string
+          reason?: string | null
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          allowed?: boolean
+          created_at?: string
+          duration_ms?: number | null
+          fn?: string
+          id?: string
+          reason?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_request_log_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       allocation_rules: {
         Row: {
           account_id: string
@@ -964,6 +1005,8 @@ export type Database = {
           account_id: string | null
           baseline_value: number | null
           category: string
+          ci_high: number | null
+          ci_low: number | null
           claim: string
           confidence: number
           created_at: string
@@ -976,8 +1019,11 @@ export type Database = {
           metric: string
           min_sample: number
           observed_value: number | null
+          p_value: number | null
+          q_value: number | null
           sample_size: number
           status: Database["public"]["Enums"]["insight_status"]
+          tests_in_run: number
           updated_at: string
           user_id: string
           window_end: string | null
@@ -987,6 +1033,8 @@ export type Database = {
           account_id?: string | null
           baseline_value?: number | null
           category: string
+          ci_high?: number | null
+          ci_low?: number | null
           claim: string
           confidence?: number
           created_at?: string
@@ -999,8 +1047,11 @@ export type Database = {
           metric: string
           min_sample?: number
           observed_value?: number | null
+          p_value?: number | null
+          q_value?: number | null
           sample_size?: number
           status?: Database["public"]["Enums"]["insight_status"]
+          tests_in_run?: number
           updated_at?: string
           user_id: string
           window_end?: string | null
@@ -1010,6 +1061,8 @@ export type Database = {
           account_id?: string | null
           baseline_value?: number | null
           category?: string
+          ci_high?: number | null
+          ci_low?: number | null
           claim?: string
           confidence?: number
           created_at?: string
@@ -1022,8 +1075,11 @@ export type Database = {
           metric?: string
           min_sample?: number
           observed_value?: number | null
+          p_value?: number | null
+          q_value?: number | null
           sample_size?: number
           status?: Database["public"]["Enums"]["insight_status"]
+          tests_in_run?: number
           updated_at?: string
           user_id?: string
           window_end?: string | null
@@ -1811,6 +1867,7 @@ export type Database = {
           strategy_id: string | null
           tags: string[] | null
           take_profit: number | null
+          tom_version_id: string | null
           updated_at: string
           user_id: string
         }
@@ -1849,6 +1906,7 @@ export type Database = {
           strategy_id?: string | null
           tags?: string[] | null
           take_profit?: number | null
+          tom_version_id?: string | null
           updated_at?: string
           user_id: string
         }
@@ -1887,6 +1945,7 @@ export type Database = {
           strategy_id?: string | null
           tags?: string[] | null
           take_profit?: number | null
+          tom_version_id?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -1903,6 +1962,13 @@ export type Database = {
             columns: ["strategy_id"]
             isOneToOne: false
             referencedRelation: "strategies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trades_tom_version_id_fkey"
+            columns: ["tom_version_id"]
+            isOneToOne: false
+            referencedRelation: "tom_versions"
             referencedColumns: ["id"]
           },
         ]
