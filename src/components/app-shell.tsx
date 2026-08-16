@@ -2,7 +2,7 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Award, BarChart3, Bell, BookMarked, BookOpen, Brain, Coins, FileDown, Gauge, GitCompareArrows, Globe, LayoutDashboard, Layers, Lightbulb, LineChart, LogOut, PlusCircle, Repeat, Settings, ShieldAlert, ShieldCheck, Sparkles, Target, Trophy, Upload, Wallet } from "lucide-react";
+import { Award, BarChart3, Bell, BookMarked, BookOpen, Brain, Coins, FileDown, Gauge, GitCompareArrows, Globe, History, LayoutDashboard, Layers, Lightbulb, LineChart, LogOut, Network, PlusCircle, Repeat, Settings, ShieldAlert, ShieldCheck, Sparkles, Target, Trophy, Upload, Wallet } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { useSuspenseQuery } from "@tanstack/react-query";
@@ -18,6 +18,8 @@ const nav: { to: string; label: string; icon: React.ComponentType<{ className?: 
   { to: "/import", label: "CSV Import", icon: Upload },
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/insights", label: "Insights", icon: Lightbulb },
+  { to: "/memory", label: "Trader Memory", icon: History },
+  { to: "/graph", label: "Knowledge Graph", icon: Network },
   { to: "/interventions", label: "Guardrails", icon: ShieldAlert },
   { to: "/twin", label: "Digital Twin", icon: GitCompareArrows },
   { to: "/manual", label: "Operating Manual", icon: BookMarked },

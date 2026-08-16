@@ -28,6 +28,7 @@ import { Route as AuthenticatedInterventionsRouteImport } from './routes/_authen
 import { Route as AuthenticatedInsightsRouteImport } from './routes/_authenticated/insights'
 import { Route as AuthenticatedImportRouteImport } from './routes/_authenticated/import'
 import { Route as AuthenticatedHabitsRouteImport } from './routes/_authenticated/habits'
+import { Route as AuthenticatedGraphRouteImport } from './routes/_authenticated/graph'
 import { Route as AuthenticatedGoalsRouteImport } from './routes/_authenticated/goals'
 import { Route as AuthenticatedForecastRouteImport } from './routes/_authenticated/forecast'
 import { Route as AuthenticatedDisciplineRouteImport } from './routes/_authenticated/discipline'
@@ -137,6 +138,11 @@ const AuthenticatedHabitsRoute = AuthenticatedHabitsRouteImport.update({
   path: '/habits',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedGraphRoute = AuthenticatedGraphRouteImport.update({
+  id: '/graph',
+  path: '/graph',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedGoalsRoute = AuthenticatedGoalsRouteImport.update({
   id: '/goals',
   path: '/goals',
@@ -212,6 +218,7 @@ export interface FileRoutesByFullPath {
   '/discipline': typeof AuthenticatedDisciplineRoute
   '/forecast': typeof AuthenticatedForecastRoute
   '/goals': typeof AuthenticatedGoalsRoute
+  '/graph': typeof AuthenticatedGraphRoute
   '/habits': typeof AuthenticatedHabitsRoute
   '/import': typeof AuthenticatedImportRoute
   '/insights': typeof AuthenticatedInsightsRoute
@@ -244,6 +251,7 @@ export interface FileRoutesByTo {
   '/discipline': typeof AuthenticatedDisciplineRoute
   '/forecast': typeof AuthenticatedForecastRoute
   '/goals': typeof AuthenticatedGoalsRoute
+  '/graph': typeof AuthenticatedGraphRoute
   '/habits': typeof AuthenticatedHabitsRoute
   '/import': typeof AuthenticatedImportRoute
   '/insights': typeof AuthenticatedInsightsRoute
@@ -278,6 +286,7 @@ export interface FileRoutesById {
   '/_authenticated/discipline': typeof AuthenticatedDisciplineRoute
   '/_authenticated/forecast': typeof AuthenticatedForecastRoute
   '/_authenticated/goals': typeof AuthenticatedGoalsRoute
+  '/_authenticated/graph': typeof AuthenticatedGraphRoute
   '/_authenticated/habits': typeof AuthenticatedHabitsRoute
   '/_authenticated/import': typeof AuthenticatedImportRoute
   '/_authenticated/insights': typeof AuthenticatedInsightsRoute
@@ -312,6 +321,7 @@ export interface FileRouteTypes {
     | '/discipline'
     | '/forecast'
     | '/goals'
+    | '/graph'
     | '/habits'
     | '/import'
     | '/insights'
@@ -344,6 +354,7 @@ export interface FileRouteTypes {
     | '/discipline'
     | '/forecast'
     | '/goals'
+    | '/graph'
     | '/habits'
     | '/import'
     | '/insights'
@@ -377,6 +388,7 @@ export interface FileRouteTypes {
     | '/_authenticated/discipline'
     | '/_authenticated/forecast'
     | '/_authenticated/goals'
+    | '/_authenticated/graph'
     | '/_authenticated/habits'
     | '/_authenticated/import'
     | '/_authenticated/insights'
@@ -539,6 +551,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedHabitsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/graph': {
+      id: '/_authenticated/graph'
+      path: '/graph'
+      fullPath: '/graph'
+      preLoaderRoute: typeof AuthenticatedGraphRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/goals': {
       id: '/_authenticated/goals'
       path: '/goals'
@@ -636,6 +655,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDisciplineRoute: typeof AuthenticatedDisciplineRoute
   AuthenticatedForecastRoute: typeof AuthenticatedForecastRoute
   AuthenticatedGoalsRoute: typeof AuthenticatedGoalsRoute
+  AuthenticatedGraphRoute: typeof AuthenticatedGraphRoute
   AuthenticatedHabitsRoute: typeof AuthenticatedHabitsRoute
   AuthenticatedImportRoute: typeof AuthenticatedImportRoute
   AuthenticatedInsightsRoute: typeof AuthenticatedInsightsRoute
@@ -667,6 +687,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDisciplineRoute: AuthenticatedDisciplineRoute,
   AuthenticatedForecastRoute: AuthenticatedForecastRoute,
   AuthenticatedGoalsRoute: AuthenticatedGoalsRoute,
+  AuthenticatedGraphRoute: AuthenticatedGraphRoute,
   AuthenticatedHabitsRoute: AuthenticatedHabitsRoute,
   AuthenticatedImportRoute: AuthenticatedImportRoute,
   AuthenticatedInsightsRoute: AuthenticatedInsightsRoute,
