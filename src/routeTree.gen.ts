@@ -22,11 +22,13 @@ import { Route as AuthenticatedRewardsRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedPsychologyRouteImport } from './routes/_authenticated/psychology'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
+import { Route as AuthenticatedMemoryRouteImport } from './routes/_authenticated/memory'
 import { Route as AuthenticatedManualRouteImport } from './routes/_authenticated/manual'
 import { Route as AuthenticatedInterventionsRouteImport } from './routes/_authenticated/interventions'
 import { Route as AuthenticatedInsightsRouteImport } from './routes/_authenticated/insights'
 import { Route as AuthenticatedImportRouteImport } from './routes/_authenticated/import'
 import { Route as AuthenticatedHabitsRouteImport } from './routes/_authenticated/habits'
+import { Route as AuthenticatedGraphRouteImport } from './routes/_authenticated/graph'
 import { Route as AuthenticatedGoalsRouteImport } from './routes/_authenticated/goals'
 import { Route as AuthenticatedForecastRouteImport } from './routes/_authenticated/forecast'
 import { Route as AuthenticatedDisciplineRouteImport } from './routes/_authenticated/discipline'
@@ -105,6 +107,11 @@ const AuthenticatedNotificationsRoute =
     path: '/notifications',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedMemoryRoute = AuthenticatedMemoryRouteImport.update({
+  id: '/memory',
+  path: '/memory',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedManualRoute = AuthenticatedManualRouteImport.update({
   id: '/manual',
   path: '/manual',
@@ -129,6 +136,11 @@ const AuthenticatedImportRoute = AuthenticatedImportRouteImport.update({
 const AuthenticatedHabitsRoute = AuthenticatedHabitsRouteImport.update({
   id: '/habits',
   path: '/habits',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedGraphRoute = AuthenticatedGraphRouteImport.update({
+  id: '/graph',
+  path: '/graph',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedGoalsRoute = AuthenticatedGoalsRouteImport.update({
@@ -206,11 +218,13 @@ export interface FileRoutesByFullPath {
   '/discipline': typeof AuthenticatedDisciplineRoute
   '/forecast': typeof AuthenticatedForecastRoute
   '/goals': typeof AuthenticatedGoalsRoute
+  '/graph': typeof AuthenticatedGraphRoute
   '/habits': typeof AuthenticatedHabitsRoute
   '/import': typeof AuthenticatedImportRoute
   '/insights': typeof AuthenticatedInsightsRoute
   '/interventions': typeof AuthenticatedInterventionsRoute
   '/manual': typeof AuthenticatedManualRoute
+  '/memory': typeof AuthenticatedMemoryRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/psychology': typeof AuthenticatedPsychologyRoute
   '/reports': typeof AuthenticatedReportsRoute
@@ -237,11 +251,13 @@ export interface FileRoutesByTo {
   '/discipline': typeof AuthenticatedDisciplineRoute
   '/forecast': typeof AuthenticatedForecastRoute
   '/goals': typeof AuthenticatedGoalsRoute
+  '/graph': typeof AuthenticatedGraphRoute
   '/habits': typeof AuthenticatedHabitsRoute
   '/import': typeof AuthenticatedImportRoute
   '/insights': typeof AuthenticatedInsightsRoute
   '/interventions': typeof AuthenticatedInterventionsRoute
   '/manual': typeof AuthenticatedManualRoute
+  '/memory': typeof AuthenticatedMemoryRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/psychology': typeof AuthenticatedPsychologyRoute
   '/reports': typeof AuthenticatedReportsRoute
@@ -270,11 +286,13 @@ export interface FileRoutesById {
   '/_authenticated/discipline': typeof AuthenticatedDisciplineRoute
   '/_authenticated/forecast': typeof AuthenticatedForecastRoute
   '/_authenticated/goals': typeof AuthenticatedGoalsRoute
+  '/_authenticated/graph': typeof AuthenticatedGraphRoute
   '/_authenticated/habits': typeof AuthenticatedHabitsRoute
   '/_authenticated/import': typeof AuthenticatedImportRoute
   '/_authenticated/insights': typeof AuthenticatedInsightsRoute
   '/_authenticated/interventions': typeof AuthenticatedInterventionsRoute
   '/_authenticated/manual': typeof AuthenticatedManualRoute
+  '/_authenticated/memory': typeof AuthenticatedMemoryRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/psychology': typeof AuthenticatedPsychologyRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
@@ -303,11 +321,13 @@ export interface FileRouteTypes {
     | '/discipline'
     | '/forecast'
     | '/goals'
+    | '/graph'
     | '/habits'
     | '/import'
     | '/insights'
     | '/interventions'
     | '/manual'
+    | '/memory'
     | '/notifications'
     | '/psychology'
     | '/reports'
@@ -334,11 +354,13 @@ export interface FileRouteTypes {
     | '/discipline'
     | '/forecast'
     | '/goals'
+    | '/graph'
     | '/habits'
     | '/import'
     | '/insights'
     | '/interventions'
     | '/manual'
+    | '/memory'
     | '/notifications'
     | '/psychology'
     | '/reports'
@@ -366,11 +388,13 @@ export interface FileRouteTypes {
     | '/_authenticated/discipline'
     | '/_authenticated/forecast'
     | '/_authenticated/goals'
+    | '/_authenticated/graph'
     | '/_authenticated/habits'
     | '/_authenticated/import'
     | '/_authenticated/insights'
     | '/_authenticated/interventions'
     | '/_authenticated/manual'
+    | '/_authenticated/memory'
     | '/_authenticated/notifications'
     | '/_authenticated/psychology'
     | '/_authenticated/reports'
@@ -485,6 +509,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedNotificationsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/memory': {
+      id: '/_authenticated/memory'
+      path: '/memory'
+      fullPath: '/memory'
+      preLoaderRoute: typeof AuthenticatedMemoryRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/manual': {
       id: '/_authenticated/manual'
       path: '/manual'
@@ -518,6 +549,13 @@ declare module '@tanstack/react-router' {
       path: '/habits'
       fullPath: '/habits'
       preLoaderRoute: typeof AuthenticatedHabitsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/graph': {
+      id: '/_authenticated/graph'
+      path: '/graph'
+      fullPath: '/graph'
+      preLoaderRoute: typeof AuthenticatedGraphRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/goals': {
@@ -617,11 +655,13 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDisciplineRoute: typeof AuthenticatedDisciplineRoute
   AuthenticatedForecastRoute: typeof AuthenticatedForecastRoute
   AuthenticatedGoalsRoute: typeof AuthenticatedGoalsRoute
+  AuthenticatedGraphRoute: typeof AuthenticatedGraphRoute
   AuthenticatedHabitsRoute: typeof AuthenticatedHabitsRoute
   AuthenticatedImportRoute: typeof AuthenticatedImportRoute
   AuthenticatedInsightsRoute: typeof AuthenticatedInsightsRoute
   AuthenticatedInterventionsRoute: typeof AuthenticatedInterventionsRoute
   AuthenticatedManualRoute: typeof AuthenticatedManualRoute
+  AuthenticatedMemoryRoute: typeof AuthenticatedMemoryRoute
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedPsychologyRoute: typeof AuthenticatedPsychologyRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
@@ -647,11 +687,13 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDisciplineRoute: AuthenticatedDisciplineRoute,
   AuthenticatedForecastRoute: AuthenticatedForecastRoute,
   AuthenticatedGoalsRoute: AuthenticatedGoalsRoute,
+  AuthenticatedGraphRoute: AuthenticatedGraphRoute,
   AuthenticatedHabitsRoute: AuthenticatedHabitsRoute,
   AuthenticatedImportRoute: AuthenticatedImportRoute,
   AuthenticatedInsightsRoute: AuthenticatedInsightsRoute,
   AuthenticatedInterventionsRoute: AuthenticatedInterventionsRoute,
   AuthenticatedManualRoute: AuthenticatedManualRoute,
+  AuthenticatedMemoryRoute: AuthenticatedMemoryRoute,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedPsychologyRoute: AuthenticatedPsychologyRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
