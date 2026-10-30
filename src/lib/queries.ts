@@ -19,6 +19,28 @@ export const accountsQuery = () =>
     },
   });
 
+export const accountCashMovementsQuery = () =>
+  queryOptions({
+    queryKey: ["account_cash_movements"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("account_cash_movements").select("*")
+        .order("created_at", { ascending: false }).limit(500);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+export const tradeImportRunsQuery = () =>
+  queryOptions({
+    queryKey: ["trade_import_runs"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("trade_import_runs").select("*")
+        .order("created_at", { ascending: false }).limit(100);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
 export const tradesQuery = (accountId?: string) =>
   queryOptions({
     queryKey: ["trades", accountId ?? "all"],
