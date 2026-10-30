@@ -253,3 +253,12 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.consume_ai_quota(text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.consume_ai_quota(text) TO authenticated;
+
+-- Preserve engine history instead of deleting and reinserting stable IDs.
+ALTER TABLE public.root_causes ADD COLUMN IF NOT EXISTS is_current boolean NOT NULL DEFAULT true;
+ALTER TABLE public.recommendations ADD COLUMN IF NOT EXISTS is_current boolean NOT NULL DEFAULT true;
+CREATE INDEX IF NOT EXISTS root_causes_current ON public.root_causes(user_id,account_id,is_current);
+CREATE INDEX IF NOT EXISTS recommendations_current ON public.recommendations(user_id,account_id,is_current);
+
+-- One active manual per trader. Historical versions remain unchanged.
+CREATE UNIQUE INDEX IF NOT EXISTS tom_one_active_per_user ON public.tom_versions(user_id) WHERE is_active;
