@@ -59,12 +59,13 @@ export interface PipelineResult {
 }
 
 export async function runIntelligencePipeline(supabase: DB, userId: string, accountId: string): Promise<PipelineResult> {
-  const [{ data: acctRows }, { data: tradeRows }, { data: checkinRows }, { data: tomRows }, { data: stratRows }, { data: mistakeRows }] =
+  const [{ data: acctRows }, { data: tradeRows }, { data: checkinRows }, { data: tomRows }, { data: allManualRows }, { data: stratRows }, { data: mistakeRows }] =
     await Promise.all([
       supabase.from("accounts").select("*").eq("id", accountId).eq("user_id", userId).limit(1),
       supabase.from("trades").select("*").eq("account_id", accountId).order("entered_at", { ascending: true }),
       supabase.from("psychology_checkins").select("*").eq("user_id", userId),
       supabase.from("tom_versions").select("*").eq("user_id", userId).eq("is_active", true).limit(1),
+      supabase.from("tom_versions").select("id,risk_limits").eq("user_id", userId),
       supabase.from("strategies").select("id,name").eq("user_id", userId),
       supabase.from("trade_mistakes").select("trade_id,mistake_code").eq("user_id", userId),
     ]);
@@ -92,8 +93,27 @@ export async function runIntelligencePipeline(supabase: DB, userId: string, acco
   const derivedRows: Database["public"]["Tables"]["behavior_events"]["Insert"][] = [];
   const scoreRows: Database["public"]["Tables"]["decision_scores"]["Insert"][] = [];
 
+  const manualLimitsById = new Map(
+    (allManualRows ?? []).map((m) => [m.id, (m.risk_limits ?? {}) as Record<string, unknown>]),
+  );
   for (const t of trades) {
-    const drafts = deriveBehaviorEvents(t, trades, checkinByTrade.get(t.id), limits);
+    const versionId = (t as unknown as { tom_version_id?: string | null }).tom_version_id;
+    const historicalLimits = versionId ? manualLimitsById.get(versionId) : null;
+    // Pinned trades are evaluated against their historical manual, never today's.
+    // Pre-version legacy trades retain account-level limits as a documented fallback.
+    const applicableLimits: ManualLimits = historicalLimits
+      ? {
+          maxRiskPct: numOrNull(historicalLimits["max_risk_pct"]),
+          maxTradesPerDay: numOrNull(historicalLimits["max_trades_per_day"]),
+          maxDailyLoss: numOrNull(historicalLimits["max_daily_loss"]),
+        }
+      : versionId ? { maxRiskPct: null, maxTradesPerDay: null, maxDailyLoss: null }
+      : {
+          maxRiskPct: numOrNull(acct.max_risk_pct),
+          maxTradesPerDay: numOrNull(acct.max_trades_per_day),
+          maxDailyLoss: numOrNull(acct.max_daily_loss),
+        };
+    const drafts = deriveBehaviorEvents(t, trades, checkinByTrade.get(t.id), applicableLimits);
     for (const d of drafts) {
       derivedRows.push({
         user_id: userId,
