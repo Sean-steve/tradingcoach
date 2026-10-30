@@ -39,6 +39,7 @@ function ImportPage() {
   const [preset, setPreset] = useState<"generic" | "mt4" | "mt5" | "binary">("generic");
   const [fileName, setFileName] = useState("");
   const [brokerUtcOffsetHours, setBrokerUtcOffsetHours] = useState("0");
+  const [pnlColumnType, setPnlColumnType] = useState<"gross" | "net">("gross");
   const [summary, setSummary] = useState("");
 
   const applyPreset = (p: "generic" | "mt4" | "mt5" | "binary") => {
@@ -189,7 +190,7 @@ function ImportPage() {
           if (!binary && !Number.isFinite(rawPnl)) throw new Error("Invalid P&L");
           let settlement: BinarySettlement = "open";
           let binaryData: Partial<TradeInsert> = {};
-          let finalPnl = rawPnl - fees;
+          let finalPnl = pnlColumnType === "gross" ? rawPnl - fees : rawPnl;
           let result: TradeInsert["result"] = !exitedAt ? "open" : finalPnl > 0 ? "win" : finalPnl < 0 ? "loss" : "breakeven";
           if (binary) {
             if (!exitedAt) throw new Error("Missing binary contract expiry");
@@ -260,7 +261,7 @@ function ImportPage() {
       const newRows = unique.filter(r=>!existing.has(r.import_fingerprint!));
       const duplicates = repeated.length + existing.size;
       if (!confirm(
-        "Import preview: " + rows.length + " source rows; " + newRows.length +
+        "Import preview (" + (binary ? "contract settlement" : pnlColumnType + " P&L") + "): " + rows.length + " source rows; " + newRows.length +
         " new, " + duplicates + " duplicates.\nNo existing trades will be overwritten. Proceed?"
       )) return;
       if (!newRows.length) {
@@ -316,6 +317,17 @@ function ImportPage() {
               value={brokerUtcOffsetHours} onChange={e=>setBrokerUtcOffsetHours(e.target.value)}
               className="mt-1" />
             <p className="text-[11px] text-muted-foreground mt-1">Applied only to timestamps WITHOUT an explicit Z or ±HH:MM offset. Example: Nairobi = +3. Broker server time may differ.</p>
+          </div>
+          <div>
+            <Label>Imported P&L column (spot/MT4/MT5)</Label>
+            <Select value={pnlColumnType} onValueChange={v=>setPnlColumnType(v as typeof pnlColumnType)}>
+              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="gross">GROSS: subtract commissions from P&L column</SelectItem>
+                <SelectItem value="net">NET: P&L column already includes commissions</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground mt-1">Verify your broker export. Incorrect selection causes double-counted fees. Binary contract rows always calculate their own P&L.</p>
           </div>
           <div>
             <Label>File</Label>
