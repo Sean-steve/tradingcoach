@@ -49,6 +49,7 @@ CREATE TABLE public.lifestyle_rewards (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   account_id uuid NOT NULL REFERENCES public.accounts(id) ON DELETE CASCADE,
+  linked_goal_id uuid REFERENCES public.goals(id) ON DELETE SET NULL,
   title text NOT NULL CHECK (length(trim(title)) BETWEEN 1 AND 160),
   description text,
   category text NOT NULL DEFAULT 'experience'
@@ -79,6 +80,10 @@ CREATE POLICY "create own reward plans" ON public.lifestyle_rewards
      SELECT 1 FROM public.accounts a WHERE a.id=account_id AND a.user_id=(select auth.uid())
    )
    AND status='planned' AND redeemed_at IS NULL
+   AND (linked_goal_id IS NULL OR EXISTS (
+     SELECT 1 FROM public.goals g WHERE g.id=linked_goal_id AND g.user_id=(select auth.uid())
+       AND g.account_id=account_id AND g.metric IN ('pnl','trade_count')
+   ))
  );
 CREATE POLICY "update own reward plans" ON public.lifestyle_rewards
  FOR UPDATE TO authenticated
@@ -194,6 +199,7 @@ RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE
   uid uuid := auth.uid(); reward public.lifestyle_rewards%ROWTYPE;
   reported numeric; trades_n integer; adherence numeric;
+  linked public.goals%ROWTYPE; metric_value numeric; effective_target numeric;
 BEGIN
   IF uid IS NULL THEN RAISE EXCEPTION 'Authentication required'; END IF;
   SELECT * INTO reward FROM public.lifestyle_rewards r
@@ -208,6 +214,20 @@ BEGIN
    WHERE t.account_id=reward.account_id AND t.user_id=uid AND t.result<>'open';
   IF trades_n<reward.min_closed_trades OR adherence<reward.min_plan_adherence_pct THEN
     RAISE EXCEPTION 'Risk-discipline process requirements not met';
+  END IF;
+  IF reward.linked_goal_id IS NOT NULL THEN
+    SELECT * INTO linked FROM public.goals g WHERE g.id=reward.linked_goal_id
+      AND g.user_id=uid AND g.account_id=reward.account_id AND g.status<>'archived';
+    IF NOT FOUND THEN RAISE EXCEPTION 'Linked goal not available'; END IF;
+    IF linked.metric='pnl'::public.goal_metric THEN
+      SELECT coalesce(sum(t.pnl),0) INTO metric_value FROM public.trades t
+        WHERE t.account_id=reward.account_id AND t.user_id=uid AND t.result<>'open';
+    ELSIF linked.metric='trade_count'::public.goal_metric THEN
+      metric_value:=trades_n;
+    ELSE RAISE EXCEPTION 'Unsupported linked goal metric'; END IF;
+    effective_target := CASE WHEN linked.target_mode='incremental' THEN
+      coalesce(linked.starting_value,0)+linked.target_value ELSE linked.target_value END;
+    IF metric_value<effective_target THEN RAISE EXCEPTION 'Linked goal not yet reached'; END IF;
   END IF;
   UPDATE public.lifestyle_rewards SET status='redeemed_reported',redeemed_at=now() WHERE id=reward.id;
   RETURN true; -- User declares they paid; DOES NOT process or verify payment.
