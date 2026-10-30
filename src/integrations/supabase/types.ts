@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       accounts: {
         Row: {
+          currency: string
           account_type: Database["public"]["Enums"]["account_type"]
           broker: string | null
           created_at: string
@@ -33,6 +34,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          currency?: string
           account_type?: Database["public"]["Enums"]["account_type"]
           broker?: string | null
           created_at?: string
@@ -50,6 +52,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          currency?: string
           account_type?: Database["public"]["Enums"]["account_type"]
           broker?: string | null
           created_at?: string
@@ -67,6 +70,82 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      account_cash_movements: {
+        Row: {
+          id: string
+          account_id: string
+          user_id: string
+          kind: "deposit" | "withdrawal"
+          amount: number
+          currency: string
+          idempotency_key: string
+          reference: string | null
+          note: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          account_id: string
+          user_id: string
+          kind: "deposit" | "withdrawal"
+          amount: number
+          currency: string
+          idempotency_key: string
+          reference?: string | null
+          note?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          account_id?: string
+          user_id?: string
+          kind?: "deposit" | "withdrawal"
+          amount?: number
+          currency?: string
+          idempotency_key?: string
+          reference?: string | null
+          note?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          { foreignKeyName: "account_cash_movements_account_id_fkey"; columns: ["account_id"]; isOneToOne: false; referencedRelation: "accounts"; referencedColumns: ["id"] }
+        ]
+      }
+      trade_import_runs: {
+        Row: {
+          id: string
+          user_id: string
+          account_id: string
+          source: "csv" | "mt4" | "mt5" | "binary_csv"
+          filename: string | null
+          attempted_rows: number
+          inserted_rows: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          account_id: string
+          source: "csv" | "mt4" | "mt5" | "binary_csv"
+          filename?: string | null
+          attempted_rows?: number
+          inserted_rows?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          account_id?: string
+          source?: "csv" | "mt4" | "mt5" | "binary_csv"
+          filename?: string | null
+          attempted_rows?: number
+          inserted_rows?: number
+          created_at?: string
+        }
+        Relationships: [
+          { foreignKeyName: "trade_import_runs_account_id_fkey"; columns: ["account_id"]; isOneToOne: false; referencedRelation: "accounts"; referencedColumns: ["id"] }
+        ]
       }
       advice_outcomes: {
         Row: {
@@ -1839,6 +1918,16 @@ export type Database = {
       }
       trades: {
         Row: {
+          instrument_type: "spot" | "binary_option"
+          currency: string
+          binary_expiry_at: string | null
+          binary_payout_ratio: number | null
+          binary_settlement: "win" | "loss" | "push" | "void" | null
+          binary_refund_amount: number | null
+          import_source: string | null
+          source_trade_id: string | null
+          import_fingerprint: string | null
+          import_run_id: string | null
           account_id: string
           asset: string
           checklist_completed: boolean | null
@@ -1878,6 +1967,16 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          instrument_type?: "spot" | "binary_option"
+          currency?: string
+          binary_expiry_at?: string | null
+          binary_payout_ratio?: number | null
+          binary_settlement?: "win" | "loss" | "push" | "void" | null
+          binary_refund_amount?: number | null
+          import_source?: string | null
+          source_trade_id?: string | null
+          import_fingerprint?: string | null
+          import_run_id?: string | null
           account_id: string
           asset: string
           checklist_completed?: boolean | null
@@ -1917,6 +2016,16 @@ export type Database = {
           user_id: string
         }
         Update: {
+          instrument_type?: "spot" | "binary_option"
+          currency?: string
+          binary_expiry_at?: string | null
+          binary_payout_ratio?: number | null
+          binary_settlement?: "win" | "loss" | "push" | "void" | null
+          binary_refund_amount?: number | null
+          import_source?: string | null
+          source_trade_id?: string | null
+          import_fingerprint?: string | null
+          import_run_id?: string | null
           account_id?: string
           asset?: string
           checklist_completed?: boolean | null
@@ -2078,6 +2187,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      tradeos_phase2_ready: {
+        Args: Record<string, never>
+        Returns: boolean
+      }
       tradeos_foundation_ready: {
         Args: Record<string, never>
         Returns: boolean
