@@ -137,7 +137,7 @@ function AccountsPage() {
         </Card>
         <Card className="glow-card p-6 border-border/40">
           <div className="text-xs uppercase tracking-wider text-muted-foreground">Realized P&L</div>
-          <div className={`mt-2 text-3xl font-bold number-mono text-${consolidated.pnl >= 0 ? "profit" : "loss"}`}>{formatMoney(consolidated.pnl, "USD", { sign: true })}</div>
+          <div className={`mt-2 text-3xl font-bold number-mono text-${consolidated.pnl >= 0 ? "profit" : "loss"}`}>{phase2Active && hasMixedCurrency ? "Per account (no FX)" : formatMoney(consolidated.pnl,ledgerTotals[0]?.currency ?? "USD",{sign:true})}</div>
         </Card>
         <Card className="glow-card p-6 border-border/40">
           <div className="text-xs uppercase tracking-wider text-muted-foreground">Total Allocated</div>
@@ -192,7 +192,7 @@ function AccountsPage() {
                     {a.is_default && <span className="text-[10px] uppercase tracking-wider text-primary border border-primary/40 rounded px-1.5 py-0.5">Default</span>}
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">Start: {formatMoney(Number(a.starting_balance),a.currency)} · Realized P&L: <span className={`text-${stats.pnl >= 0 ? "profit" : "loss"}`}>{formatMoney(stats.pnl, a.currency, { sign: true })}</span></div>
-                  {phase2Active && audit && Math.abs(variance)>=0.01 && <div className="text-xs text-loss mt-1">Balance variance: {formatMoney(variance,a.currency,{sign:true})}. Reconcile against statements; no automatic overwrite.</div>}}
+                  {phase2Active && audit && Math.abs(variance)>=0.01 && <div className="text-xs text-loss mt-1">Balance variance: {formatMoney(variance,a.currency,{sign:true})}. Reconcile against statements; no automatic overwrite.</div>}
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="text-right">
