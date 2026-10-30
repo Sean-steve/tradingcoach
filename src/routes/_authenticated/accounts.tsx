@@ -4,7 +4,7 @@ import { useSuspenseQuery, useQuery, useQueryClient } from "@tanstack/react-quer
 import { supabase } from "@/integrations/supabase/client";
 import { accountsQuery, tradesQuery, profitAllocationsQuery, allocationRulesQuery, accountCashMovementsQuery } from "@/lib/queries";
 import { isPhase2Active } from "@/lib/phase2-readiness";
-import { expectedCashBalance, balanceVariance, groupBalancesByCurrency, splitAllocationCents } from "@/lib/financial-reconciliation";
+import { groupBalancesByCurrency, splitAllocationCents } from "@/lib/financial-reconciliation";
 import { useActiveAccountId } from "@/lib/active-account";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,6 +41,15 @@ function AccountsPage() {
     return () => { alive = false; };
   }, []);
   const cash = useQuery({ ...accountCashMovementsQuery(), enabled: phase2Active });
+  const reconcile = useQuery({
+    queryKey: ["account_reconciliation"],
+    enabled: phase2Active,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("tradeos_account_reconciliation");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
 
   const [newName, setNewName] = useState("");
   const [newType, setNewType] = useState<"personal" | "prop_firm" | "funded" | "demo" | "binary" | "forex" | "crypto">("personal");
@@ -165,12 +174,12 @@ function AccountsPage() {
 
       {/* Accounts list */}
       <div className="space-y-4">
+        {phase2Active && reconcile.isError && <div className="text-xs text-loss">Unable to retrieve authoritative reconciliation: {reconcile.error instanceof Error ? reconcile.error.message : "Unknown error"}</div>}
         {accounts.map((a) => {
           const stats = perAccount.get(a.id)!;
           const relevantMovements = ledgerMovements.filter(m=>m.account_id === a.id);
-          const expected = expectedCashBalance(Number(a.starting_balance),
-            trades.filter(t=>t.account_id===a.id),relevantMovements);
-          const variance = balanceVariance(Number(a.current_balance),expected);
+          const audit = reconcile.data?.find(x=>x.account_id===a.id);
+          const variance = Number(audit?.variance ?? 0);
           const balance = phase2Active ? Number(a.current_balance) : Number(a.starting_balance) + stats.pnl - stats.allocated;
           const rule = rules.find((r) => r.account_id === a.id);
           return (
@@ -183,7 +192,7 @@ function AccountsPage() {
                     {a.is_default && <span className="text-[10px] uppercase tracking-wider text-primary border border-primary/40 rounded px-1.5 py-0.5">Default</span>}
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">Start: {formatMoney(Number(a.starting_balance),a.currency)} · Realized P&L: <span className={`text-${stats.pnl >= 0 ? "profit" : "loss"}`}>{formatMoney(stats.pnl, a.currency, { sign: true })}</span></div>
-                  {phase2Active && Math.abs(variance)>=0.01 && <div className="text-xs text-loss mt-1">Balance variance: {formatMoney(variance,a.currency,{sign:true})}. Reconcile against statements; no automatic overwrite.</div>}
+                  {phase2Active && audit && Math.abs(variance)>=0.01 && <div className="text-xs text-loss mt-1">Balance variance: {formatMoney(variance,a.currency,{sign:true})}. Reconcile against statements; no automatic overwrite.</div>}}
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="text-right">
@@ -361,6 +370,7 @@ function AccountCashPanel({ account, movements }: {
       await Promise.all([
         qc.invalidateQueries({queryKey:["account_cash_movements"]}),
         qc.invalidateQueries({queryKey:["accounts"]}),
+        qc.invalidateQueries({queryKey:["account_reconciliation"]}),
       ]);
       toast.success("Cash movement recorded; verify against broker statement");
     } catch (error) { toast.error(error instanceof Error ? error.message : "Cash movement failed"); }
