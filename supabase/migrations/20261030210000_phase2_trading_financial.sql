@@ -115,6 +115,15 @@ REVOKE EXECUTE ON FUNCTION public.tradeos_binary_contract_normalize() FROM PUBLI
 CREATE TRIGGER trg_tradeos_binary_contract BEFORE INSERT OR UPDATE ON public.trades
 FOR EACH ROW EXECUTE FUNCTION public.tradeos_binary_contract_normalize();
 
+-- Foundation's original balance trigger only listened to explicit UPDATE OF
+-- pnl/result/account_id/user_id. A binary settlement edit can alter P&L inside
+-- this BEFORE trigger without those columns appearing in the SET list.
+-- Listen to every UPDATE so NEW.pnl vs OLD.pnl always posts its delta once.
+DROP TRIGGER IF EXISTS trg_tradeos_trade_balance ON public.trades;
+CREATE TRIGGER trg_tradeos_trade_balance
+  AFTER INSERT OR UPDATE OR DELETE ON public.trades
+  FOR EACH ROW EXECUTE FUNCTION public.tradeos_trade_balance_trigger();
+
 -- Account cash movements are independent of earmarked profit allocations.
 -- Only actual deposits/withdrawals affect the authoritative cash balance.
 CREATE TABLE public.account_cash_movements (
