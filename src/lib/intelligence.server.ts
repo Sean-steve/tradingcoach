@@ -59,12 +59,11 @@ export interface PipelineResult {
 }
 
 export async function runIntelligencePipeline(supabase: DB, userId: string, accountId: string): Promise<PipelineResult> {
-  const [{ data: acctRows }, { data: tradeRows }, { data: checkinRows }, { data: tomRows }, { data: allManualRows }, { data: stratRows }, { data: mistakeRows }] =
+  const [{ data: acctRows }, { data: tradeRows }, { data: checkinRows }, { data: allManualRows }, { data: stratRows }, { data: mistakeRows }] =
     await Promise.all([
       supabase.from("accounts").select("*").eq("id", accountId).eq("user_id", userId).limit(1),
       supabase.from("trades").select("*").eq("account_id", accountId).order("entered_at", { ascending: true }),
       supabase.from("psychology_checkins").select("*").eq("user_id", userId),
-      supabase.from("tom_versions").select("*").eq("user_id", userId).eq("is_active", true).limit(1),
       supabase.from("tom_versions").select("id,risk_limits").eq("user_id", userId),
       supabase.from("strategies").select("id,name").eq("user_id", userId),
       supabase.from("trade_mistakes").select("trade_id,mistake_code").eq("user_id", userId),
@@ -72,15 +71,6 @@ export async function runIntelligencePipeline(supabase: DB, userId: string, acco
 
   const acct = acctRows?.[0];
   if (!acct) throw new Error("Account not found");
-  const tom = tomRows?.[0];
-  const riskLimits = (tom?.risk_limits ?? {}) as Record<string, unknown>;
-
-  const limits: ManualLimits = {
-    maxRiskPct: numOrNull(riskLimits["max_risk_pct"]) ?? numOrNull(acct.max_risk_pct),
-    maxTradesPerDay: numOrNull(riskLimits["max_trades_per_day"]) ?? numOrNull(acct.max_trades_per_day),
-    maxDailyLoss: numOrNull(riskLimits["max_daily_loss"]) ?? numOrNull(acct.max_daily_loss),
-  };
-
   const trades = (tradeRows ?? []) as unknown as BehaviorTradeLike[];
   const preCheckins = (checkinRows ?? []) as unknown as CheckinLike[];
   const checkinByTrade = new Map<string, CheckinLike>();
