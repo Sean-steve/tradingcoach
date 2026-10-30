@@ -4,7 +4,7 @@ import { useActiveAccountId } from "@/lib/active-account";
 import { Suspense, useMemo, useState } from "react";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { accountsQuery, badgesCatalogQuery, habitLogsQuery, tradesQuery, userBadgesQuery, lifestyleRewardsQuery, rewardFundingEventsQuery, profilePreferencesQuery, profitAllocationsQuery } from "@/lib/queries";
+import { accountsQuery, badgesCatalogQuery, habitLogsQuery, tradesQuery, userBadgesQuery, lifestyleRewardsQuery, rewardFundingEventsQuery, profilePreferencesQuery, profitAllocationsQuery, goalsQuery } from "@/lib/queries";
 import { isPhase4Active } from "@/lib/foundation-readiness";
 import { rewardProgress, planningAllowance } from "@/lib/reward-planning";
 import { Input } from "@/components/ui/input";
@@ -68,6 +68,7 @@ function RewardsPage() {
   const { data: funding } = useSuspenseQuery(rewardFundingEventsQuery(active?.id));
   const { data: allocations } = useSuspenseQuery(profitAllocationsQuery(active?.id));
   const { data: profile } = useSuspenseQuery(profilePreferencesQuery());
+  const { data: goals } = useSuspenseQuery(goalsQuery());
   const currency = profile?.base_currency ?? "USD";
   const [rewardName,setRewardName] = useState("");
   const [rewardCategory,setRewardCategory] = useState<"travel"|"experience"|"purchase"|"education"|"other">("travel");
@@ -75,6 +76,10 @@ function RewardsPage() {
   const [rewardBudget,setRewardBudget] = useState("");
   const [rewardDate,setRewardDate] = useState("");
   const [rewardCap,setRewardCap] = useState("5");
+  const [minTrades,setMinTrades] = useState("20");
+  const [minAdherence,setMinAdherence] = useState("80");
+  const [linkedGoalId,setLinkedGoalId] = useState("none");
+  const eligibleGoals = goals.filter(g=>g.account_id===active?.id && g.status!=="archived" && (g.metric==="pnl" || g.metric==="trade_count"));
   const [fundReward,setFundReward] = useState("");
   const [fundType,setFundType] = useState<"pledge"|"reported_transfer">("pledge");
   const [fundAmount,setFundAmount] = useState("");
@@ -104,6 +109,10 @@ function RewardsPage() {
     if (!(await isPhase4Active())) { toast.error("Activate Phase 4 database migration to plan rewards"); return; }
     const pct=Number(rewardCap);
     if (!Number.isFinite(pct) || pct<0.1 || pct>10) { toast.error("Allocation cap must be 0.1–10%"); return; }
+    if (!Number.isInteger(Number(minTrades)) || Number(minTrades)<20 || Number(minTrades)>10000
+       || Number(minAdherence)<70 || Number(minAdherence)>100) {
+      toast.error("Process conditions: 20+ trades and 70–100% adherence"); return;
+    }
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) { toast.error("Sign in to plan rewards"); return; }
     const { error } = await supabase.from("lifestyle_rewards").insert({
@@ -111,7 +120,8 @@ function RewardsPage() {
       category:rewardCategory,destination:destination.trim() || null,
       budget:Number(rewardBudget), currency:currency.toUpperCase(),
       funding_cap_pct:pct, target_date:rewardDate||null,
-      min_closed_trades:20,min_plan_adherence_pct:80,
+      min_closed_trades:Number(minTrades),min_plan_adherence_pct:Number(minAdherence),
+      linked_goal_id:linkedGoalId==="none"?null:linkedGoalId,
     });
     if (error) toast.error(error.message);
     else {setRewardName("");setRewardBudget("");setDestination("");setRewardDate("");
@@ -182,15 +192,28 @@ function RewardsPage() {
           <div><Label>Budget ({currency})</Label><Input type="number" min="0.01" step="0.01" value={rewardBudget} onChange={e=>setRewardBudget(e.target.value)} className="mt-1"/></div>
           <div><Label>Planned profit share cap (%)</Label><Input type="number" min="0.1" max="10" step="0.1" value={rewardCap} onChange={e=>setRewardCap(e.target.value)} className="mt-1"/></div>
           <div><Label>Target date</Label><Input type="date" value={rewardDate} onChange={e=>setRewardDate(e.target.value)} className="mt-1"/></div>
+          <div><Label>Required closed trades (min 20)</Label><Input type="number" min="20" step="1" value={minTrades} onChange={e=>setMinTrades(e.target.value)} className="mt-1"/></div>
+          <div><Label>Minimum plan adherence %</Label><Input type="number" min="70" max="100" step="1" value={minAdherence} onChange={e=>setMinAdherence(e.target.value)} className="mt-1"/></div>
+          <div><Label>Optional linked goal</Label><Select value={linkedGoalId} onValueChange={setLinkedGoalId}>
+            <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+            <SelectContent><SelectItem value="none">No linked target</SelectItem>
+            {eligibleGoals.map(g=><SelectItem key={g.id} value={g.id}>{g.title}</SelectItem>)}</SelectContent>
+          </Select></div>
         </div>
         <Button onClick={createReward}>Create reward plan</Button>
-        <p className="text-xs text-muted-foreground">Funding plans require at least 20 recorded closed trades and 80% plan adherence before a self-reported redemption. This app does not verify bank transfers, broker withdrawals or tax obligations.</p>
+        <p className="text-xs text-muted-foreground">To report redemption, satisfy your own process thresholds and any linked goal, and declare external savings covering the budget. This app does not verify bank transfers, broker withdrawals or tax obligations.</p>
       </Card>
 
       {rewards.length>0 && <section className="space-y-3">
         <h2 className="font-semibold">Lifestyle reward roadmap</h2>
         {rewards.map(reward=>{
           const progress=rewardProgress(reward,funding,trades);
+          const linked = goals.find(g=>g.id===reward.linked_goal_id);
+          const linkedCurrent = linked?.metric==="pnl"?m.netPnl:m.tradesCount;
+          const linkedThreshold = linked
+            ? Number(linked.target_value) + (linked.target_mode==="incremental"?Number(linked.starting_value??0):0)
+            : 0;
+          const linkedAchieved = !linked || linkedCurrent>=linkedThreshold;
           const amountAvailable=planningAllowance({
             realizedNetPnl:m.netPnl,reservedTaxAndCapital:reserved,
             allocatedToAllRewards:allPlanned,rewardPledged:progress.planned,
@@ -212,12 +235,12 @@ function RewardsPage() {
               <div>Conservative new allowance<strong className="block">{formatMoney(amountAvailable,reward.currency)}</strong></div>
             </div>
             <Progress value={progress.reportedCoverage}/>
-            <p className="text-xs text-muted-foreground">{progress.reportedCoverage}% of budget self-reported externally; {progress.closedTrades} closed trades · {progress.adherence==null?"unknown":progress.adherence+"%"} plan adherence. Neither pledge nor self-report constitutes verified funds.</p>
+            <p className="text-xs text-muted-foreground">{progress.reportedCoverage}% of budget self-reported externally; {progress.closedTrades} closed trades · {progress.adherence==null?"unknown":progress.adherence+"%"} plan adherence. Required: {reward.min_closed_trades} trades and {reward.min_plan_adherence_pct}% adherence. {linked?"Linked goal: "+linked.title+" ("+(linkedAchieved?"reached":"not yet reached")+")":""} Neither pledge nor self-report constitutes verified funds.</p>
             {reward.status==="planned" && <>
               <div className="flex flex-wrap gap-2">
                 <Button size="sm" variant="outline" onClick={()=>{setFundReward(reward.id);setFundType("pledge");}}>Plan contribution</Button>
                 <Button size="sm" variant="outline" onClick={()=>{setFundReward(reward.id);setFundType("reported_transfer");}}>Record external transfer (self-report)</Button>
-                <Button size="sm" disabled={!progress.maySelfReportRedemption} onClick={()=>redeem(reward.id)}>Mark redeemed (self-reported)</Button>
+                <Button size="sm" disabled={!progress.maySelfReportRedemption || !linkedAchieved} onClick={()=>redeem(reward.id)}>Mark redeemed (self-reported)</Button>
               </div>
               {fundReward===reward.id && <div className="p-3 border border-border/40 rounded space-y-3">
                 <p className="text-sm font-medium">{fundType==="pledge"?"Earmark trading-profit budget":"Record an external savings transfer you made"}</p>
