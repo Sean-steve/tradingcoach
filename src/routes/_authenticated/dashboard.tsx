@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense } from "react";
-import { accountsQuery, tradesQuery, tradeMistakesQuery, psychQuery, recommendationsQuery } from "@/lib/queries";
+import { accountsQuery, tradesQuery, tradeMistakesQuery, psychQuery, recommendationsQuery, goalsQuery, lifestyleRewardsQuery, rewardFundingEventsQuery, profilePreferencesQuery } from "@/lib/queries";
+import { planGoal, realizedSessionPnl, todayInZone } from "@/lib/goal-planning";
+import { rewardProgress } from "@/lib/reward-planning";
 import { computeMetrics, performanceScore, consistencyIndex, rollup, bucketWeek, bucketMonth } from "@/lib/metrics";
 import type { TradeLike } from "@/lib/metrics";
 import { useActiveAccountId } from "@/lib/active-account";
@@ -34,9 +36,13 @@ function Dashboard() {
   const { data: mistakes } = useSuspenseQuery(tradeMistakesQuery());
   const { data: psych } = useSuspenseQuery(psychQuery());
   const { data: recs } = useSuspenseQuery(recommendationsQuery(activeId ?? undefined));
+  const { data: goals } = useSuspenseQuery(goalsQuery());
+  const { data: rewardPlans } = useSuspenseQuery(lifestyleRewardsQuery(active?.id));
+  const { data: rewardEvents } = useSuspenseQuery(rewardFundingEventsQuery(active?.id));
+  const { data: profile } = useSuspenseQuery(profilePreferencesQuery());
 
   const startBal = Number(active?.starting_balance ?? 10000);
-  const currency = "USD";
+  const currency = profile?.base_currency ?? "USD";
   const m = computeMetrics(trades as unknown as TradeLike[], startBal);
   const score = performanceScore(m);
   const grade = gradeFromScore(score.total);
@@ -76,6 +82,23 @@ function Dashboard() {
 
   const topRec = recs.filter((r) => r.status === "active").sort((a, b) => a.priority - b.priority)[0];
   const missionText = topRec ? topRec.action : suggestMission(m, score, dayPnl);
+  const goalHistory = realizedSessionPnl(trades);
+  const today = todayInZone(profile?.timezone ?? "UTC");
+  const activeGoals = goals.filter(g=>g.status==="active" && (!g.account_id || g.account_id===active?.id)).slice(0,3);
+  const goalValue = (key:string):number => {
+    switch(key) {
+      case "pnl": return m.netPnl;
+      case "win_rate": return m.winRate;
+      case "profit_factor": return Number.isFinite(m.profitFactor)?m.profitFactor:0;
+      case "discipline_score": return score.discipline;
+      case "consistency": return score.consistency;
+      case "trade_count": return m.tradesCount;
+      case "max_drawdown_pct": return m.maxDrawdownPct;
+      default: return score.total;
+    }
+  };
+  const upcomingReward = rewardPlans.find(r=>r.status==="planned");
+  const rewardSummary = upcomingReward ? rewardProgress(upcomingReward,rewardEvents,trades) : null;
 
   return (
     <div className="p-8 max-w-[1600px] mx-auto space-y-6">
@@ -161,7 +184,7 @@ function Dashboard() {
             <p className="text-sm mt-1 leading-relaxed">{missionText}</p>
             {topRec ? (
               <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
-                <span>Evidence-backed · {Math.round(Number(topRec.confidence) * 100)}% confidence</span>
+                <span>Evidence index {Math.round(Number(topRec.confidence))}/100 (not calibrated certainty)</span>
                 <Link to="/insights" className="text-primary hover:underline">Why?</Link>
               </div>
             ) : (
@@ -176,6 +199,33 @@ function Dashboard() {
             <ScoreBar label="Risk" value={score.risk} />
             <ScoreBar label="Discipline" value={score.discipline} />
           </div>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card className="glow-card p-5 border-border/40 space-y-3">
+          <div className="flex items-center justify-between"><h2 className="font-semibold">My goal roadmap</h2><Link to="/goals" className="text-xs text-primary hover:underline">Manage goals →</Link></div>
+          {activeGoals.length===0 && <p className="text-xs text-muted-foreground">No active goals for this account. Start with one achievable process objective.</p>}
+          {activeGoals.map(g=>{
+            const plan=planGoal({goal:g,currentValue:goalValue(g.metric),today,history:goalHistory,allowedWeekdays:g.trading_weekdays??[1,2,3,4,5]});
+            return <div key={g.id} className="space-y-1 border-t border-border/40 pt-2">
+              <div className="flex justify-between gap-3 text-sm"><span>{g.title}</span><span className="text-xs text-muted-foreground">{plan.progressPct}%</span></div>
+              <Progress value={plan.progressPct}/>
+              <p className="text-xs text-muted-foreground">
+                {plan.achieved?"Target reached":plan.daysLeft!=null?`${plan.daysLeft} permitted planning days remain`:"No deadline"}
+                {g.metric==="pnl" && plan.requiredPerDay!=null ? ` · arithmetic pace ${formatMoney(plan.requiredPerDay,currency)}/day (not a quota)`:""}
+              </p>
+            </div>;
+          })}
+        </Card>
+        <Card className="glow-card p-5 border-border/40 space-y-3">
+          <div className="flex items-center justify-between"><h2 className="font-semibold">Real-life reward roadmap</h2><Link to="/rewards" className="text-xs text-primary hover:underline">Open rewards →</Link></div>
+          {upcomingReward && rewardSummary ? <>
+            <div className="text-sm font-medium">{upcomingReward.title}</div>
+            <div className="text-xs text-muted-foreground">Planned {formatMoney(rewardSummary.planned,upcomingReward.currency)} · Self-reported external savings {formatMoney(rewardSummary.selfReported,upcomingReward.currency)} / {formatMoney(Number(upcomingReward.budget),upcomingReward.currency)}</div>
+            <Progress value={rewardSummary.reportedCoverage}/>
+            <p className="text-xs text-muted-foreground">Bank/broker funding not independently verified; recorded trading profits are not spendable cash. Process discipline is required before self-reported redemption.</p>
+          </> : <p className="text-xs text-muted-foreground">No personal reward plan yet. Design a meaningful experience or purchase without increasing trading risk.</p>}
         </Card>
       </div>
 
