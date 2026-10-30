@@ -1097,6 +1097,10 @@ export type Database = {
       }
       interventions: {
         Row: {
+          baseline_n: number
+          observed_n: number
+          adjusted_q: number | null
+          win_rate_effect_points: number | null
           account_id: string | null
           action: string
           baseline_rate: number | null
@@ -1124,6 +1128,10 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          baseline_n?: number
+          observed_n?: number
+          adjusted_q?: number | null
+          win_rate_effect_points?: number | null
           account_id?: string | null
           action: string
           baseline_rate?: number | null
@@ -1151,6 +1159,10 @@ export type Database = {
           user_id: string
         }
         Update: {
+          baseline_n?: number
+          observed_n?: number
+          adjusted_q?: number | null
+          win_rate_effect_points?: number | null
           account_id?: string | null
           action?: string
           baseline_rate?: number | null
@@ -1465,6 +1477,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      recommendation_actions: {
+        Row: {
+          id: string
+          user_id: string
+          account_id: string
+          recommendation_id: string
+          action: "accept" | "activate" | "dismiss" | "complete"
+          previous_status: Database["public"]["Enums"]["recommendation_status"]
+          new_status: Database["public"]["Enums"]["recommendation_status"]
+          note: string | null
+          intervention_id: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          account_id: string
+          recommendation_id: string
+          action: "accept" | "activate" | "dismiss" | "complete"
+          previous_status: Database["public"]["Enums"]["recommendation_status"]
+          new_status: Database["public"]["Enums"]["recommendation_status"]
+          note?: string | null
+          intervention_id?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          account_id?: string
+          recommendation_id?: string
+          action?: "accept" | "activate" | "dismiss" | "complete"
+          previous_status?: Database["public"]["Enums"]["recommendation_status"]
+          new_status?: Database["public"]["Enums"]["recommendation_status"]
+          note?: string | null
+          intervention_id?: string | null
+          created_at?: string
+        }
+        Relationships: []
       }
       recommendations: {
         Row: {
@@ -2099,6 +2150,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      tradeos_phase3_ready: {
+        Args: Record<string, never>
+        Returns: boolean
+      }
+      tradeos_recommendation_action: {
+        Args: { p_recommendation: string; p_action: string; p_note?: string | null; p_guardrail?: Json | null }
+        Returns: Json
+      }
+
       tradeos_phase2_ready: {
         Args: Record<string, never>
         Returns: boolean
