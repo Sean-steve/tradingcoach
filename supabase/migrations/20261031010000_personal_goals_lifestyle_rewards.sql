@@ -2,6 +2,15 @@
 -- Prerequisites: all prior migrations from Phase 1–3. Safe by default:
 -- does not transfer cash, credit funded balances, or rewrite historical P&L.
 
+ALTER TABLE public.goals
+  ADD COLUMN horizon text NOT NULL DEFAULT 'custom'
+    CHECK(horizon IN ('daily','weekly','monthly','quarterly','annual','custom')),
+  ADD COLUMN target_mode text NOT NULL DEFAULT 'absolute'
+    CHECK(target_mode IN ('absolute','incremental')),
+  ADD COLUMN trading_weekdays smallint[] NOT NULL DEFAULT ARRAY[1,2,3,4,5]::smallint[];
+-- Existing goals retain absolute semantics. New goals may use incremental
+-- targets relative to the creation-time starting_value snapshot.
+
 CREATE TABLE public.goal_milestones (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
