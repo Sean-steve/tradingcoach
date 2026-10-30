@@ -56,12 +56,13 @@ function TradeDetail() {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-3xl font-bold tracking-tight">{t.asset}</h1>
-              <Badge variant="outline" className="uppercase text-[10px]">{t.direction}</Badge>
+              <Badge variant="outline" className="uppercase text-[10px]">{t.instrument_type === "binary_option" ? (t.direction === "long" ? "CALL" : "PUT") : t.direction}</Badge>
+              {t.instrument_type === "binary_option" && <Badge variant="outline">BINARY OPTION</Badge>}
               <span className={`text-xs uppercase tracking-wider text-${pnlTone(Number(t.pnl))}`}>{t.result}</span>
             </div>
             <div className="text-sm text-muted-foreground mt-1">{t.setup ?? "—"} · {new Date(t.entered_at).toLocaleString()}</div>
           </div>
-          <div className={`text-3xl font-bold number-mono text-${pnlTone(Number(t.pnl))}`}>{formatMoney(Number(t.pnl), "USD", { sign: true })}</div>
+          <div className={`text-3xl font-bold number-mono text-${pnlTone(Number(t.pnl))}`}>{formatMoney(Number(t.pnl), t.currency ?? "USD", { sign: true })}</div>
         </div>
       </div>
 
@@ -73,9 +74,21 @@ function TradeDetail() {
         <Stat label="Risk %" value={t.risk_pct ? formatPct(Number(t.risk_pct)) : "—"} />
         <Stat label="Planned RR" value={t.planned_rr ? String(t.planned_rr) : "—"} />
         <Stat label="Realized RR" value={t.realized_rr ? String(t.realized_rr) : "—"} />
-        <Stat label="Fees" value={formatMoney(Number(t.fees ?? 0))} />
+        <Stat label="Fees" value={formatMoney(Number(t.fees ?? 0), t.currency ?? "USD")} />
       </Card>
 
+      {t.instrument_type === "binary_option" && <Card className="glow-card p-6 border-border/40">
+        <h3 className="font-semibold mb-3">Binary contract settlement</h3>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <Stat label="Stake" value={formatMoney(Number(t.stake ?? 0),t.currency)} />
+          <Stat label="Net payout on WIN" value={t.binary_payout_ratio == null ? "—" : (Number(t.binary_payout_ratio) * 100).toFixed(2) + "%"} />
+          <Stat label="Contract expiry" value={t.binary_expiry_at ? new Date(t.binary_expiry_at).toLocaleString() : "—"} />
+          <Stat label="Settlement" value={t.binary_settlement?.toUpperCase() ?? "OPEN"} />
+          <Stat label="Principal refunded" value={formatMoney(Number(t.binary_refund_amount ?? 0),t.currency)} />
+          <Stat label="Account currency" value={t.currency} />
+        </div>
+        <p className="text-xs mt-3 text-muted-foreground">Net P&L records profit or loss, not the returned principal. Contract outcome can differ from the sign of P&L when fees apply.</p>
+      </Card>}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="glow-card border-border/40 p-6">
           <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Confidence</div>
