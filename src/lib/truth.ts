@@ -38,6 +38,14 @@ export interface InsightDraft {
   confidence: number;
   impact_estimate: number;
   min_sample: number;
+  /** Unadjusted two-sided probability for the win-rate comparison. */
+  p_value?: number;
+  /** Dependence-robust Benjamini-Yekutieli adjusted p-value across this run. */
+  q_value?: number;
+  /** Conservative 95% interval for win-rate difference, in percentage points. */
+  ci_low?: number | null;
+  ci_high?: number | null;
+  tests_in_run?: number;
   detail: Record<string, unknown>;
   evidence: EvidenceDraft[];
 }
@@ -114,6 +122,57 @@ export function proportionConfidence(x1: number, n1: number, x2: number, n2: num
   if (se === 0) return 0;
   const z = Math.abs((p1 - p2) / se);
   return Math.round(Math.min(99.9, (2 * normalCdf(z) - 1) * 100) * 10) / 10;
+}
+
+
+/**
+ * Conservative significance gate: the pooled z test is used only if all
+ * expected 2x2 cell counts are >=5; otherwise the claim remains exploratory.
+ * Values returned here are p-values, not probabilities the hypothesis is true.
+ */
+export function twoProportionPValue(x1: number, n1: number, x2: number, n2: number): number {
+  if (n1 < 2 || n2 < 2 || x1 < 0 || x2 < 0 || x1 > n1 || x2 > n2) return 1;
+  const p = (x1 + x2) / (n1 + n2);
+  if ([n1 * p, n1 * (1 - p), n2 * p, n2 * (1 - p)].some((n) => n < 5)) return 1;
+  const se = Math.sqrt(p * (1 - p) * (1 / n1 + 1 / n2));
+  if (!(se > 0)) return 1;
+  const z = Math.abs(x1 / n1 - x2 / n2) / se;
+  return Math.max(0, Math.min(1, 2 * (1 - normalCdf(z))));
+}
+
+function wilsonInterval(x: number, n: number): [number, number] {
+  if (n <= 0) return [0, 1];
+  const z = 1.959963984540054;
+  const p = x / n;
+  const denom = 1 + z * z / n;
+  const center = (p + z * z / (2 * n)) / denom;
+  const margin = (z / denom) * Math.sqrt(p * (1 - p) / n + z * z / (4 * n * n));
+  return [Math.max(0, center - margin), Math.min(1, center + margin)];
+}
+
+/** Conservative Newcombe-style bounds for the difference between two proportions. */
+export function proportionDifferenceInterval(x1: number, n1: number, x2: number, n2: number): [number, number] {
+  const [lo1, hi1] = wilsonInterval(x1, n1);
+  const [lo2, hi2] = wilsonInterval(x2, n2);
+  return [(lo1 - hi2) * 100, (hi1 - lo2) * 100];
+}
+
+/**
+ * Benjamini-Yekutieli adjustment controls false discovery rate even for
+ * dependent tests (our segments overlap), unlike unadjusted p-values.
+ */
+export function adjustPValuesBY(pValues: number[]): number[] {
+  const m = pValues.length;
+  if (!m) return [];
+  const harmonic = Array.from({ length: m }, (_, i) => 1 / (i + 1)).reduce((a, b) => a + b, 0);
+  const ranked = pValues.map((p, index) => ({ p: Math.max(0, Math.min(1, p)), index })).sort((a, b) => a.p - b.p);
+  const adjusted = Array<number>(m).fill(1);
+  let next = 1;
+  for (let i = m - 1; i >= 0; i--) {
+    next = Math.min(next, Math.min(1, (ranked[i].p * m * harmonic) / (i + 1)));
+    adjusted[ranked[i].index] = next;
+  }
+  return adjusted;
 }
 
 interface Segment {
@@ -247,16 +306,17 @@ export function computeInsights(input: TruthInput): InsightDraft[] {
     const b = stats(outSeg);
     const wrDelta = a.winRate - b.winRate;
     const expDelta = a.expectancy - b.expectancy;
+    const pValue = twoProportionPValue(a.wins, a.n, b.wins, b.n);
+    const [ciLow, ciHigh] = proportionDifferenceInterval(a.wins, a.n, b.wins, b.n);
+    // Tentative only: the final gate runs after correction across ALL segments.
+    const status: InsightStatus = "insufficient_evidence";
     const confidence = proportionConfidence(a.wins, a.n, b.wins, b.n);
-
-    const gatePassed = a.n >= minSample && b.n >= minSample && confidence >= 80 && Math.abs(wrDelta) >= 5;
-    const status: InsightStatus = gatePassed ? "validated" : "insufficient_evidence";
 
     const direction = wrDelta < 0 ? "drops" : "rises";
     const claim =
       `Win rate ${direction} ${r1(Math.abs(wrDelta))} points on ${seg.label}: ` +
       `${r1(a.winRate)}% over ${a.n} trades versus a ${r1(b.winRate)}% baseline across ${b.n} trades. ` +
-      `Expectancy ${expDelta < 0 ? "falls" : "improves"} by ${r2(Math.abs(expDelta))} per trade.`;
+      `Observed P&L per trade differs by ${r2(Math.abs(expDelta))} (descriptive only; not independently tested).`;
 
     const worst = inSeg
       .slice()
@@ -281,6 +341,9 @@ export function computeInsights(input: TruthInput): InsightDraft[] {
       confidence,
       impact_estimate: r2(expDelta * a.n),
       min_sample: minSample,
+      p_value: pValue,
+      ci_low: r2(ciLow),
+      ci_high: r2(ciHigh),
       detail: {
         label: seg.label,
         baseline_sample: b.n,
@@ -288,18 +351,37 @@ export function computeInsights(input: TruthInput): InsightDraft[] {
         baseline_expectancy: r2(b.expectancy),
         expectancy_delta: r2(expDelta),
         net_pnl_in_segment: r2(a.net),
-        gate: { min_sample: minSample, min_confidence: 80, min_delta_points: 5 },
+        gate: { min_sample: minSample, max_adjusted_q: 0.05, min_delta_points: 5, method: "BY_FDR_overlapping_segments" },
       },
       evidence: [
         { label: "Sample size", value: `${a.n} trades` },
         { label: "Baseline sample", value: `${b.n} trades` },
         { label: "Observed win rate", value: `${r1(a.winRate)}%` },
         { label: "Baseline win rate", value: `${r1(b.winRate)}%` },
-        { label: "Statistical confidence", value: `${confidence}%` },
+        { label: "Unadjusted evidence index (not probability)", value: `${confidence}%` },
         { label: "Net P&L in segment", value: r2(a.net).toString() },
         ...worst,
       ],
     });
+  }
+
+  const qValues = adjustPValuesBY(insights.map((i) => i.p_value ?? 1));
+  for (const [i, item] of insights.entries()) {
+    const q = qValues[i];
+    item.q_value = Math.round(q * 1000000) / 1000000;
+    item.tests_in_run = insights.length;
+    const baselineN = Number(item.detail["baseline_sample"] ?? 0);
+    const intervalExcludesZero = (item.ci_low ?? 0) > 0 || (item.ci_high ?? 0) < 0;
+    item.status = item.sample_size >= minSample &&
+      baselineN >= minSample &&
+      q <= 0.05 &&
+      Math.abs(item.delta) >= 5 &&
+      intervalExcludesZero ? "validated" : "insufficient_evidence";
+    // Compatibility value for existing UI: an adjusted evidence index, NOT
+    // a posterior probability or calibrated model confidence.
+    item.confidence = r1((1 - q) * 100);
+    item.evidence.push({ label: "Adjusted q-value (BY FDR)", value: item.q_value.toString() });
+    item.evidence.push({ label: "95% interval for win-rate difference", value: `[${item.ci_low}, ${item.ci_high}] percentage points` });
   }
 
   return insights.sort((x, y) => {
@@ -314,13 +396,13 @@ const CAUSE_THEMES: { key: string; title: string; explanation: string; match: (i
   {
     key: "risk_after_adversity",
     title: "Risk expands after adversity",
-    explanation: "Losses are followed by larger risk and faster re-entries instead of a reset, so drawdowns compound.",
+    explanation: "Losses are followed by larger risk and faster re-entries instead of a reset, which may accompany larger drawdowns; causation is not established.",
     match: (i) => ["after_2_losses", "behavior_revenge_trade", "behavior_risk_escalation", "behavior_oversize", "behavior_daily_loss_breach", "risk_above_median"].includes(i.insight_key),
   },
   {
     key: "state_before_process",
     title: "Unregulated state precedes poor decisions",
-    explanation: "Stress, fatigue and low focus at entry line up with the weakest outcomes, meaning state is driving execution.",
+    explanation: "Stress, fatigue and low focus at entry line up with the weakest outcomes, which may indicate a contributing factor, not proven causation.",
     match: (i) => i.category === "psychology" || ["behavior_stress", "behavior_fatigue", "behavior_frustration", "behavior_fomo"].includes(i.insight_key),
   },
   {
