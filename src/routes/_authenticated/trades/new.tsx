@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { accountsQuery, strategiesQuery, mistakeCatalogQuery, tradesQuery, interventionsQuery } from "@/lib/queries";
+import { accountsQuery, strategiesQuery, mistakeCatalogQuery, tradesQuery, interventionsQuery, tomQuery } from "@/lib/queries";
 import { sessionFromDate } from "@/lib/metrics";
 import { todayPnl, weekPnl } from "@/lib/metrics";
 import type { TradeLike } from "@/lib/metrics";
@@ -39,6 +39,8 @@ function NewTrade() {
   const { data: catalog } = useSuspenseQuery(mistakeCatalogQuery());
   const { data: allTrades } = useSuspenseQuery(tradesQuery());
   const { data: interventions } = useSuspenseQuery(interventionsQuery());
+  const { data: manualVersions } = useSuspenseQuery(tomQuery());
+  const activeManual = manualVersions.find((m) => m.is_active);
 
   const [saving, setSaving] = useState(false);
   const [reflection, setReflection] = useState("");
@@ -97,8 +99,13 @@ function NewTrade() {
   const acctTrades = (allTrades ?? []).filter((t) => t.account_id === selectedAcct?.id) as unknown as TradeLike[];
   const dayPnlNow = todayPnl(acctTrades);
   const weekPnlNow = weekPnl(acctTrades);
-  const dLimit = selectedAcct?.max_daily_loss ? Number(selectedAcct.max_daily_loss) : null;
-  const wLimit = selectedAcct?.max_weekly_loss ? Number(selectedAcct.max_weekly_loss) : null;
+  const manualLimits = (activeManual?.risk_limits ?? {}) as Record<string, unknown>;
+  const manualLimit = (key: string, fallback: number | null | undefined): number | null => {
+    const n = Number(manualLimits[key]);
+    return manualLimits[key] != null && Number.isFinite(n) ? n : fallback ?? null;
+  };
+  const dLimit = manualLimit("max_daily_loss", selectedAcct?.max_daily_loss == null ? null : Number(selectedAcct.max_daily_loss));
+  const wLimit = manualLimit("max_weekly_loss", selectedAcct?.max_weekly_loss == null ? null : Number(selectedAcct.max_weekly_loss));
   const dailyLocked = dLimit != null && dayPnlNow <= -dLimit;
   const weeklyLocked = wLimit != null && weekPnlNow <= -wLimit;
   const isLocked = !unlocked && (dailyLocked || weeklyLocked);
@@ -180,12 +187,15 @@ function NewTrade() {
       const exitedAt = form.exited_at ? new Date(form.exited_at) : null;
       const duration = exitedAt ? Math.round((+exitedAt - +enteredAt) / 1000) : null;
       const pnl = Number(form.pnl || 0) - Number(form.fees || 0);
+      if (form.result === "open" && pnl !== 0) throw new Error("Open trades cannot have realized P&L.");
       const result: TradeInsert["result"] = form.result === "open" ? "open" : pnl > 0 ? "win" : pnl < 0 ? "loss" : "breakeven";
 
       const insertData: TradeInsert = {
         user_id: userId,
         account_id: form.account_id,
         strategy_id: form.strategy_id || null,
+        // Pin the effective manual for future audits; historical imports may remain unpinned.
+        tom_version_id: activeManual?.id ?? null,
         asset: form.asset.trim().toUpperCase(),
         setup: form.setup || null,
         direction: form.direction,
@@ -282,15 +292,14 @@ function NewTrade() {
         { onConflict: "trade_id" },
       );
 
-      // update account balance
-      const acct = accounts.find((a) => a.id === form.account_id);
-      if (acct) {
-        await supabase.from("accounts").update({ current_balance: Number(acct.current_balance) + pnl }).eq("id", acct.id);
-      }
-
+      // Balance reconciliation and durable intelligence enqueue are atomic
+      // database triggers; do not calculate balances from stale browser state.
       toast.success("Trade logged");
-      // refresh the intelligence layer in the background
-      runPipeline({ data: { accountId: form.account_id } }).catch(() => {});
+      // Immediate refresh is an optimization; the persisted job remains on
+      // the queue if the request fails or the browser navigates away.
+      runPipeline({ data: { accountId: form.account_id } }).catch((error: unknown) => {
+        console.error("Intelligence refresh deferred to background job", error);
+      });
       navigate({ to: "/trades" });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save trade");
