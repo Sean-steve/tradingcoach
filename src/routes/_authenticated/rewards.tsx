@@ -1,4 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useActiveAccountId } from "@/lib/active-account";
+
 import { Suspense, useMemo } from "react";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -51,7 +53,8 @@ function RewardsPage() {
   const { data: catalog } = useSuspenseQuery(badgesCatalogQuery());
   const { data: earned } = useSuspenseQuery(userBadgesQuery());
   const { data: accounts } = useSuspenseQuery(accountsQuery());
-  const active = accounts[0];
+  const { activeId } = useActiveAccountId();
+  const active = accounts.find((a) => a.id === activeId) ?? accounts[0];
   const { data: trades } = useSuspenseQuery(tradesQuery(active?.id));
   const { data: logs } = useSuspenseQuery(habitLogsQuery(60));
 
