@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,9 +17,8 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Loader2, Upload as UploadIcon, X } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
-import { useServerFn } from "@tanstack/react-start";
-import { runIntelligence } from "@/lib/intelligence.functions";
 import { evaluateTrigger, type InterventionLike, type TriggerContext } from "@/lib/interventions";
+import { useActiveAccountId } from "@/lib/active-account";
 
 export const Route = createFileRoute("/_authenticated/trades/new")({
   component: () => (
@@ -33,7 +32,7 @@ type TradeInsert = Database["public"]["Tables"]["trades"]["Insert"];
 
 function NewTrade() {
   const navigate = useNavigate();
-  const runPipeline = useServerFn(runIntelligence);
+  const { activeId } = useActiveAccountId();
   const { data: accounts } = useSuspenseQuery(accountsQuery());
   const { data: strategies } = useSuspenseQuery(strategiesQuery());
   const { data: catalog } = useSuspenseQuery(mistakeCatalogQuery());
@@ -50,7 +49,7 @@ function NewTrade() {
   const [acked, setAcked] = useState<string[]>([]);
   const [overrides, setOverrides] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
-    account_id: accounts[0]?.id ?? "",
+    account_id: activeId ?? accounts[0]?.id ?? "",
     strategy_id: "",
     asset: "",
     setup: "",
@@ -182,6 +181,7 @@ function NewTrade() {
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData.user?.id;
       if (!userId) throw new Error("Not signed in");
+      if (!activeManual) throw new Error("Publish your Trading Operating Manual before logging a new trade.");
 
       const enteredAt = new Date(form.entered_at);
       const exitedAt = form.exited_at ? new Date(form.exited_at) : null;
@@ -294,12 +294,7 @@ function NewTrade() {
 
       // Balance reconciliation and durable intelligence enqueue are atomic
       // database triggers; do not calculate balances from stale browser state.
-      toast.success("Trade logged");
-      // Immediate refresh is an optimization; the persisted job remains on
-      // the queue if the request fails or the browser navigates away.
-      runPipeline({ data: { accountId: form.account_id } }).catch((error: unknown) => {
-        console.error("Intelligence refresh deferred to background job", error);
-      });
+      toast.success("Trade logged — intelligence refresh queued");
       navigate({ to: "/trades" });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save trade");
@@ -309,7 +304,15 @@ function NewTrade() {
   };
 
   return (
-    isLocked ? (
+    !activeManual ? (
+      <div className="p-8 max-w-2xl mx-auto space-y-4">
+        <Card className="glow-card p-6 space-y-3">
+          <h1 className="text-xl font-semibold">Publish your Trading Operating Manual first</h1>
+          <p className="text-sm text-muted-foreground">New trades must be linked to the rules that were active when they were taken. Your historical imports remain available.</p>
+          <Link to="/manual" className="text-primary underline">Open Trading Operating Manual</Link>
+        </Card>
+      </div>
+    ) : isLocked ? (
       <div className="p-8 max-w-2xl mx-auto space-y-4">
         <Card className="glow-card border-2 border-loss/60 p-6 space-y-4">
           <div className="flex items-start gap-3">
