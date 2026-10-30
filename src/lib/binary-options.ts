@@ -71,7 +71,7 @@ export function calculateBinarySettlement(c: BinaryContract): BinaryCalculation 
   }
   if (c.settlement === "open" && feeCents !== 0) throw new Error("Unsettled contracts must not recognize fees");
   return {
-    pnl: profitCents / 100,
+    pnl: profitCents === 0 ? 0 : profitCents / 100,
     grossProfit: grossWinCents / 100,
     result,
     refundedPrincipal: refundCents / 100,
