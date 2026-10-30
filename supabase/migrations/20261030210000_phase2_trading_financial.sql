@@ -183,7 +183,9 @@ CREATE TABLE public.trade_import_runs (
 );
 ALTER TABLE public.trade_import_runs ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.trade_import_runs FROM PUBLIC, anon, authenticated;
-GRANT SELECT, INSERT ON public.trade_import_runs TO authenticated;
+GRANT SELECT ON public.trade_import_runs TO authenticated;
+GRANT INSERT (user_id, account_id, source, filename, attempted_rows)
+  ON public.trade_import_runs TO authenticated;
 GRANT ALL ON public.trade_import_runs TO service_role;
 CREATE POLICY "read own imports" ON public.trade_import_runs FOR SELECT TO authenticated
   USING ((select auth.uid()) = user_id);
@@ -222,3 +224,27 @@ CREATE OR REPLACE FUNCTION public.tradeos_phase2_ready()
 RETURNS boolean LANGUAGE sql STABLE SECURITY INVOKER SET search_path = '' AS $$ SELECT true $$;
 REVOKE ALL ON FUNCTION public.tradeos_phase2_ready() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.tradeos_phase2_ready() TO authenticated;
+
+-- Full-dataset reconciliation; avoids PostgREST's default 1000-row query cap.
+-- Read-only and SECURITY INVOKER: only rows allowed by the account RLS policy.
+CREATE OR REPLACE FUNCTION public.tradeos_account_reconciliation()
+RETURNS TABLE (
+  account_id uuid, currency text, booked numeric, expected numeric, variance numeric
+)
+LANGUAGE sql STABLE SECURITY INVOKER SET search_path = '' AS $$
+  SELECT a.id, a.currency, a.current_balance,
+    round(a.starting_balance + coalesce(t.realized_pnl,0) + coalesce(c.net_cash,0),2),
+    round(a.current_balance - (a.starting_balance + coalesce(t.realized_pnl,0) + coalesce(c.net_cash,0)),2)
+  FROM public.accounts a
+  LEFT JOIN LATERAL (
+    SELECT sum(pnl) AS realized_pnl FROM public.trades t
+    WHERE t.account_id = a.id AND t.result <> 'open'
+  ) t ON true
+  LEFT JOIN LATERAL (
+    SELECT sum(CASE WHEN kind='deposit' THEN amount ELSE -amount END) AS net_cash
+    FROM public.account_cash_movements m WHERE m.account_id = a.id
+  ) c ON true
+  WHERE a.user_id = (select auth.uid());
+$$;
+REVOKE ALL ON FUNCTION public.tradeos_account_reconciliation() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.tradeos_account_reconciliation() TO authenticated;
