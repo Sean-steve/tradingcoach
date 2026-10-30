@@ -37,7 +37,7 @@ export function breakevenWinRatePercent(payoutPercent: number, stake: number, fe
   if (stakeCents <= 0 || refundCents > stakeCents) throw new Error("Invalid stake/refund");
   if (!Number.isFinite(payoutPercent) || payoutPercent < 0 || payoutPercent > 10000) throw new Error("Invalid payout percentage");
   // x*grossWin + (1-x)*grossLoss - fees = 0
-  const win = stakeCents * payoutPercent / 10000 - feesCents;
+  const win = stakeCents * payoutPercent / 100 - feesCents;
   const loss = -(stakeCents - refundCents) - feesCents;
   const denom = win - loss;
   if (denom <= 0) return NaN;
