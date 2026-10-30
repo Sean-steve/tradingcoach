@@ -8,10 +8,12 @@ export function DimensionDashboard({
   title,
   trades,
   keyOf,
+  currency = "USD",
 }: {
   title: string;
   trades: TradeLike[];
   keyOf: (t: TradeLike) => string;
+  currency?: string;
 }) {
   const singular = title.replace(/s$/i, "").toLowerCase();
   const groups = groupByDimension(trades, keyOf);
@@ -28,8 +30,8 @@ export function DimensionDashboard({
     rows.length === 0
       ? "No closed trades yet — log more trades to see per-dimension performance."
       : rows.length === 1
-        ? `Only one ${singular} tracked so far (${best.key}). Diversify to reveal your edge.`
-        : `Your sharpest edge: ${best.key} — net ${formatMoney(best.net, "USD", { sign: true })}, PF ${Number.isFinite(best.pf) ? best.pf.toFixed(2) : "∞"}, ${best.winRate.toFixed(0)}% win. Weakest: ${worst.key} — net ${formatMoney(worst.net, "USD", { sign: true })}. Concentrate size on the top performer and cut or refine the tail before adding more variables.`;
+        ? `Only one ${singular} tracked so far (${best.key}); insufficient groups for comparison.`
+        : `Historical comparison: ${best.key} had ${formatMoney(best.net, currency, { sign: true })} net across ${best.trades} trades. ${worst.key} had ${formatMoney(worst.net, currency, { sign: true })} across ${worst.trades}. This is descriptive, not a statistically validated edge; do not escalate stake based on this ranking.`;
 
   return (
     <div className="p-8 max-w-[1600px] mx-auto space-y-6">
@@ -37,7 +39,7 @@ export function DimensionDashboard({
 
       <Card className="glow-card p-6 border-border/40">
         <div className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-2 mb-2">
-          <Sparkles className="h-3 w-3 text-primary" /> AI conclusion
+          <Sparkles className="h-3 w-3 text-primary" /> Descriptive summary
         </div>
         <p className="text-sm leading-relaxed">{conclusion}</p>
       </Card>
@@ -52,7 +54,7 @@ export function DimensionDashboard({
               <YAxis tick={{ fontSize: 11, fill: "oklch(0.68 0.03 250)" }} />
               <Tooltip
                 contentStyle={{ background: "oklch(0.19 0.035 260)", border: "1px solid oklch(1 0 0 / 10%)", borderRadius: 8, fontSize: 12 }}
-                formatter={(v: number) => formatMoney(v, "USD", { sign: true })}
+                formatter={(v: number) => formatMoney(v, currency, { sign: true })}
               />
               <Bar dataKey="net">
                 {rows.map((d, i) => (
@@ -90,8 +92,8 @@ export function DimensionDashboard({
                 <td className="text-right number-mono text-muted-foreground">{r.trades}</td>
                 <td className="text-right number-mono">{formatPct(r.winRate, { digits: 0 })}</td>
                 <td className="text-right number-mono">{Number.isFinite(r.pf) ? formatNum(r.pf) : "∞"}</td>
-                <td className={`text-right number-mono text-${pnlTone(r.expectancy)}`}>{formatMoney(r.expectancy, "USD", { sign: true })}</td>
-                <td className={`text-right number-mono text-${pnlTone(r.net)}`}>{formatMoney(r.net, "USD", { sign: true })}</td>
+                <td className={`text-right number-mono text-${pnlTone(r.expectancy)}`}>{formatMoney(r.expectancy, currency, { sign: true })}</td>
+                <td className={`text-right number-mono text-${pnlTone(r.net)}`}>{formatMoney(r.net, currency, { sign: true })}</td>
               </tr>
             ))}
           </tbody>
