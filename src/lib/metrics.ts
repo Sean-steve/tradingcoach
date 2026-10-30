@@ -60,26 +60,30 @@ export function computeMetrics(trades: TradeLike[], startingBalance: number): Me
     .slice()
     .sort((a, b) => +new Date(a.exited_at ?? a.entered_at) - +new Date(b.exited_at ?? b.entered_at));
 
-  const wins = closed.filter((t) => t.pnl > 0);
-  const losses = closed.filter((t) => t.pnl < 0);
+  const wins = closed.filter((t) => t.result === "win");
+  const losses = closed.filter((t) => t.result === "loss");
+  const profitable = closed.filter((t) => Number(t.pnl) > 0);
+  const unprofitable = closed.filter((t) => Number(t.pnl) < 0);
   const be = closed.filter((t) => t.pnl === 0 && t.result === "breakeven");
   const openTrades = trades.filter((t) => t.result === "open").length;
 
-  const grossProfit = wins.reduce((s, t) => s + t.pnl, 0);
-  const grossLoss = Math.abs(losses.reduce((s, t) => s + t.pnl, 0));
+  const grossProfit = profitable.reduce((sum,t) => sum + Number(t.pnl),0);
+  const grossLoss = Math.abs(unprofitable.reduce((sum,t) => sum + Number(t.pnl),0));
   const netPnl = grossProfit - grossLoss;
 
-  const winRate = closed.length ? (wins.length / closed.length) * 100 : 0;
-  const avgWin = wins.length ? grossProfit / wins.length : 0;
-  const avgLoss = losses.length ? grossLoss / losses.length : 0;
+  // A refunded PUSH/VOID and a breakeven are not binary wins or losses.
+  const decided = wins.length + losses.length;
+  const winRate = decided ? (wins.length / decided) * 100 : 0;
+  const avgWin = wins.length ? wins.reduce((a,t)=>a+Number(t.pnl),0) / wins.length : 0;
+  const avgLoss = losses.length ? Math.abs(losses.reduce((a,t)=>a+Number(t.pnl),0)) / losses.length : 0;
   const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : grossProfit > 0 ? Infinity : 0;
   const expectancy = closed.length ? netPnl / closed.length : 0;
 
   const rrValues = closed.map((t) => t.realized_rr).filter((v): v is number => v != null);
   const avgRR = rrValues.length ? rrValues.reduce((a, b) => a + b, 0) / rrValues.length : 0;
 
-  const largestWin = wins.reduce((m, t) => Math.max(m, t.pnl), 0);
-  const largestLoss = losses.reduce((m, t) => Math.min(m, t.pnl), 0);
+  const largestWin = profitable.reduce((m,t)=>Math.max(m,Number(t.pnl)),0);
+  const largestLoss = unprofitable.reduce((m,t)=>Math.min(m,Number(t.pnl)),0);
 
   // equity curve
   let bal = startingBalance;
@@ -266,17 +270,17 @@ export function rollup(trades: TradeLike[], bucketKey: (d: Date) => string): Per
     .sort()
     .reverse()
     .map(([period, arr]) => {
-      const wins = arr.filter((t) => t.pnl > 0);
-      const losses = arr.filter((t) => t.pnl < 0);
-      const gp = wins.reduce((s, t) => s + t.pnl, 0);
-      const gl = Math.abs(losses.reduce((s, t) => s + t.pnl, 0));
+      const wins = arr.filter((t) => t.result === "win");
+      const losses = arr.filter((t) => t.result === "loss");
+      const gp = arr.filter(t=>Number(t.pnl)>0).reduce((s,t)=>s+Number(t.pnl),0);
+      const gl = Math.abs(arr.filter(t=>Number(t.pnl)<0).reduce((s,t)=>s+Number(t.pnl),0));
       const net = gp - gl;
       return {
         period,
         trades: arr.length,
         wins: wins.length,
         losses: losses.length,
-        winRate: arr.length ? (wins.length / arr.length) * 100 : 0,
+        winRate: wins.length + losses.length ? (wins.length / (wins.length + losses.length)) * 100 : 0,
         netPnl: net,
         profitFactor: gl > 0 ? gp / gl : gp > 0 ? Infinity : 0,
         expectancy: arr.length ? net / arr.length : 0,
@@ -302,14 +306,14 @@ export function rollingPerformance(trades: TradeLike[], window = 20): { i: numbe
   const out: { i: number; winRate: number; expectancy: number; pf: number }[] = [];
   for (let i = window - 1; i < closed.length; i++) {
     const chunk = closed.slice(i - window + 1, i + 1);
-    const wins = chunk.filter((t) => t.pnl > 0);
-    const losses = chunk.filter((t) => t.pnl < 0);
-    const gp = wins.reduce((s, t) => s + t.pnl, 0);
-    const gl = Math.abs(losses.reduce((s, t) => s + t.pnl, 0));
+    const wins = chunk.filter(t=>t.result === "win");
+    const losses = chunk.filter(t=>t.result === "loss");
+    const gp = chunk.filter(t=>Number(t.pnl)>0).reduce((s,t)=>s+Number(t.pnl),0);
+    const gl = Math.abs(chunk.filter(t=>Number(t.pnl)<0).reduce((s,t)=>s+Number(t.pnl),0));
     const net = gp - gl;
     out.push({
       i: i + 1,
-      winRate: (wins.length / chunk.length) * 100,
+      winRate: wins.length + losses.length ? (wins.length / (wins.length + losses.length)) * 100 : 0,
       expectancy: net / chunk.length,
       pf: gl > 0 ? Math.min(gp / gl, 5) : gp > 0 ? 5 : 0,
     });
