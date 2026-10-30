@@ -7,6 +7,7 @@ import { interventionsQuery, guardrailChecksQuery, recommendationsQuery } from "
 import { refreshInterventions } from "@/lib/interventions.functions";
 import { draftFromRecommendation, adherenceRate, parseTriggerConfig } from "@/lib/interventions";
 import { useActiveAccountId } from "@/lib/active-account";
+import { isPhase3Active } from "@/lib/foundation-readiness";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -53,7 +54,7 @@ function Interventions() {
   });
 
   const activated = new Set(ivs.map((i) => i.recommendation_id).filter(Boolean) as string[]);
-  const candidates = recs.filter((r) => r.status !== "dismissed" && !activated.has(r.id));
+  const candidates = recs.filter((r) => (r.status === "active" || r.status === "accepted") && !activated.has(r.id));
 
   const activate = async (rec: (typeof recs)[number]) => {
     const { data: userData } = await supabase.auth.getUser();
@@ -66,24 +67,38 @@ function Interventions() {
       rationale: rec.rationale,
       confidence: rec.confidence,
     });
-    const { error } = await supabase.from("interventions").insert({
-      user_id: uid,
-      account_id: activeId,
-      recommendation_id: rec.id,
-      insight_id: rec.insight_id,
-      title: d.title,
-      action: d.action,
-      trigger_type: d.trigger_type,
-      trigger_config: d.trigger_config as never,
-      hard_block: d.hard_block,
-      target_behavior_code: d.target_behavior_code,
-      evidence: d.evidence,
-      confidence: d.confidence,
-    });
-    if (error) return toast.error(error.message);
-    await supabase.from("recommendations").update({ status: "accepted" }).eq("id", rec.id);
-    toast.success("Guardrail activated — it will enforce on your next trade");
-    qc.invalidateQueries();
+    try {
+      if (await isPhase3Active()) {
+        // One transaction: validated recommendation -> accepted -> guardrail.
+        const { error } = await supabase.rpc("tradeos_recommendation_action", {
+          p_recommendation: rec.id, p_action: "activate", p_note: null,
+          p_guardrail: {
+            trigger_type: d.trigger_type,
+            trigger_config: d.trigger_config,
+            hard_block: d.hard_block,
+            target_behavior_code: d.target_behavior_code,
+          } as never,
+        });
+        if (error) throw error;
+      } else {
+        // Pre-migration compatibility: preserve the existing two-step flow.
+        const { error } = await supabase.from("interventions").insert({
+          user_id: uid, account_id: activeId, recommendation_id: rec.id,
+          insight_id: rec.insight_id, title: d.title, action: d.action,
+          trigger_type: d.trigger_type, trigger_config: d.trigger_config as never,
+          hard_block: d.hard_block, target_behavior_code: d.target_behavior_code,
+          evidence: d.evidence, confidence: d.confidence,
+        });
+        if (error) throw error;
+        const { error: recError } = await supabase.from("recommendations")
+          .update({ status: "accepted" }).eq("id", rec.id);
+        if (recError) throw recError;
+      }
+      toast.success("Guardrail activated — it will be checked before your next recorded trade");
+      qc.invalidateQueries();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to activate guardrail");
+    }
   };
 
   const toggleBlock = async (id: string, hard: boolean) => {
@@ -111,7 +126,7 @@ function Interventions() {
           <h1 className="text-3xl font-bold tracking-tight mt-1">Guardrails</h1>
           <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
             An insight only matters if it changes what you do. Activated recommendations become pre-trade
-            guardrails, and each one is scored on whether the behavior it targets actually got rarer.
+            guardrails, and each one is checked for statistically supported changes in the targeted behavior. These are observations, not causal proof.
           </p>
         </div>
         <Button onClick={() => refreshMutation.mutate()} disabled={refreshMutation.isPending} className="gap-2">
@@ -192,7 +207,10 @@ function Interventions() {
                         {" → "}
                         <span className={observed < baseline ? "text-profit" : observed > baseline ? "text-loss" : ""}>{observed}%</span>
                       </div>
-                      <div className="text-[10px] text-muted-foreground">target ≤ {Number(iv.target_rate ?? 0)}% · n={iv.sample_size}</div>
+                      <div className="text-[10px] text-muted-foreground">
+                        target ≤ {Number(iv.target_rate ?? 0)}% · baseline n={iv.baseline_n ?? 0} · since n={iv.observed_n ?? iv.sample_size}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">Adjusted q={iv.adjusted_q == null ? "pending" : Number(iv.adjusted_q).toFixed(3)} · observational change only</div>
                       <div className="flex items-center gap-2 justify-end text-[11px]">
                         <span className="text-muted-foreground">Hard block</span>
                         <Switch checked={iv.hard_block} onCheckedChange={(v) => toggleBlock(iv.id, v)} />
