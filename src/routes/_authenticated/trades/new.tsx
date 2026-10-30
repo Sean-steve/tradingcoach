@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { accountsQuery, strategiesQuery, mistakeCatalogQuery, tradesQuery, interventionsQuery, tomQuery } from "@/lib/queries";
+import { accountsQuery, strategiesQuery, mistakeCatalogQuery, tradesQuery, interventionsQuery, tomQuery, behaviorEventsQuery } from "@/lib/queries";
 import { sessionFromDate } from "@/lib/metrics";
 import { todayPnl, weekPnl } from "@/lib/metrics";
 import type { TradeLike } from "@/lib/metrics";
@@ -102,6 +102,7 @@ function NewTrade() {
   });
 
   const update = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm((f) => ({ ...f, [k]: v }));
+  const { data: recentEvents } = useSuspenseQuery(behaviorEventsQuery(form.account_id));
   const isBinary = form.contract_type === "binary";
   const binaryPreview = (() => {
     if (!isBinary || !form.stake || !form.payout_percent) return null;
@@ -146,6 +147,9 @@ function NewTrade() {
     riskPct: form.risk_pct ? Number(form.risk_pct) : null,
     tradesToday,
     session: sessionFromDate(enteredDate),
+    recentBehaviorCodes: recentEvents
+      .filter(event => new Date(event.occurred_at).getTime() >= Date.now() - 24 * 60 * 60 * 1000)
+      .map(event => event.code),
   };
   const activeGuardrails = (interventions as unknown as InterventionLike[]).filter(
     (i) => i.status === "active" && (i as unknown as { account_id: string | null }).account_id === selectedAcct?.id,
