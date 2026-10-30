@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { accountsQuery, goalsQuery, tradesQuery, goalMilestonesQuery, profilePreferencesQuery } from "@/lib/queries";
 import { useActiveAccountId } from "@/lib/active-account";
 import { isPhase4Active } from "@/lib/foundation-readiness";
-import { planGoal, planNotice, realizedSessionPnl, milestoneReached, todayInZone } from "@/lib/goal-planning";
+import { planGoal, planNotice, realizedSessionPnl, milestoneReached, todayInZone, horizonDeadline } from "@/lib/goal-planning";
 import { computeMetrics, performanceScore, type TradeLike } from "@/lib/metrics";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -82,7 +82,9 @@ function GoalsPage() {
   const add = async () => {
     if (!title.trim() || !target) return;
     if (!active?.id) { toast.error("Choose a trading account"); return; }
-    if (!Number.isFinite(Number(target)) || Number(target) <= 0) { toast.error("Target must be positive"); return; }
+    if (!Number.isFinite(Number(target)) || Number(target) < 0 || (Number(target)===0 && metric!=="max_drawdown_pct")) {
+      toast.error("Target must be valid and nonnegative"); return;
+    }
     if (!weekdays.length) { toast.error("Choose at least one permitted planning weekday"); return; }
     if (deadline && deadline < today) { toast.error("Deadline must not be in the past"); return; }
     const { data: u } = await supabase.auth.getUser();
@@ -96,7 +98,7 @@ function GoalsPage() {
       target_value: Number(target),
       starting_value: current,
       deadline: deadline || null,
-      ...(enabled ? { horizon, target_mode: mode, trading_weekdays: weekdays } : {}),
+      ...(enabled ? { horizon, target_mode: metric==="max_drawdown_pct"?"absolute":mode, trading_weekdays: weekdays } : {}),
     });
     if (error) toast.error(error.message);
     else { setTitle(""); setTarget(""); setDeadline(""); qc.invalidateQueries({ queryKey: ["goals"] }); toast.success("Goal added"); }
@@ -142,20 +144,20 @@ function GoalsPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
           <div className="md:col-span-2"><Label>Title</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Hit $2k P&L this month" className="mt-1" /></div>
           <div><Label>Metric</Label>
-            <Select value={metric} onValueChange={(v) => setMetric(v as MetricKey)}>
+            <Select value={metric} onValueChange={(v) => { setMetric(v as MetricKey); if(v==="max_drawdown_pct") setMode("absolute"); }}>
               <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
               <SelectContent>{METRICS.map((m) => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div><Label>Target</Label><Input type="number" step="any" min="0.01" value={target} onChange={(e) => setTarget(e.target.value)} className="mt-1" /></div>
           <div><Label>Time horizon</Label>
-            <Select value={horizon} onValueChange={v=>setHorizon(v as typeof horizon)}>
+            <Select value={horizon} onValueChange={v=>{const next=v as typeof horizon;setHorizon(next);setDeadline(horizonDeadline(today,next)??"");}}>
               <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
               <SelectContent>{["daily","weekly","monthly","quarterly","annual","custom"].map(x=><SelectItem key={x} value={x}>{x}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div><Label>Goal interpretation</Label>
-            <Select value={mode} onValueChange={v=>setMode(v as typeof mode)}>
+            <Select value={metric==="max_drawdown_pct"?"absolute":mode} disabled={metric==="max_drawdown_pct"} onValueChange={v=>setMode(v as typeof mode)}>
               <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
               <SelectContent><SelectItem value="incremental">Improve by target from today</SelectItem><SelectItem value="absolute">Reach total metric value</SelectItem></SelectContent>
             </Select>
