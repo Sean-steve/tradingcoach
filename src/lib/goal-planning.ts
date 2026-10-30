@@ -107,3 +107,20 @@ export function todayInZone(timezone: string, now: Date = new Date()): string {
   const get = (type: string) => parts.find(p=>p.type===type)?.value ?? "";
   return `${get("year")}-${get("month")}-${get("day")}`;
 }
+
+/** Default period end dates are suggestions, always editable by the trader. */
+export function horizonDeadline(today: string, horizon: "daily"|"weekly"|"monthly"|"quarterly"|"annual"|"custom"): string | null {
+  const epoch=day(today);
+  const dt=new Date(epoch);
+  const year=dt.getUTCFullYear(),month=dt.getUTCMonth();
+  let end:Date;
+  switch(horizon) {
+    case "daily": return today;
+    case "weekly": end=new Date(epoch+(7-dt.getUTCDay())%7*DAY_MS); break; // ISO week ending Sunday
+    case "monthly": end=new Date(Date.UTC(year,month+1,0)); break;
+    case "quarterly": end=new Date(Date.UTC(year,Math.floor(month/3)*3+3,0)); break;
+    case "annual": end=new Date(Date.UTC(year,11,31)); break;
+    default: return null;
+  }
+  return end.toISOString().slice(0,10);
+}
