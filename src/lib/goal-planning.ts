@@ -6,7 +6,7 @@
 export type GoalMetric = "pnl" | "win_rate" | "profit_factor" | "discipline_score" |
   "consistency" | "trade_count" | "max_drawdown_pct" | "performance_score";
 export type Feasibility = "reached" | "expired" | "insufficient_history" | "above_historical_pace" | "within_historical_pace" | "no_deadline";
-export type GoalLike = { metric: string; target_value: number | string; starting_value?: number | string | null; deadline?: string | null };
+export type GoalLike = { metric: string; target_value: number | string; starting_value?: number | string | null; deadline?: string | null; target_mode?: "absolute" | "incremental" };
 const DAY_MS = 86_400_000;
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 function day(date: string): number {
@@ -53,8 +53,8 @@ export function planGoal(args: {
   allowedWeekdays?: readonly number[];
 }): GoalPlan {
   const { goal, currentValue, today } = args;
-  const target = Number(goal.target_value);
   const starting = Number(goal.starting_value ?? 0);
+  const target = goal.target_mode === "incremental" ? starting + Number(goal.target_value) : Number(goal.target_value);
   if (![target,starting,currentValue].every(Number.isFinite)) throw Error("Non-finite goal amount");
   const inverse = goal.metric === "max_drawdown_pct";
   const remaining = Math.max(0, inverse ? currentValue - target : target - currentValue);
