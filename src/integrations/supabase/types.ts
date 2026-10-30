@@ -1468,6 +1468,7 @@ export type Database = {
       }
       recommendations: {
         Row: {
+          is_current: boolean
           account_id: string | null
           action: string
           confidence: number
@@ -1486,6 +1487,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          is_current?: boolean
           account_id?: string | null
           action: string
           confidence?: number
@@ -1504,6 +1506,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          is_current?: boolean
           account_id?: string | null
           action?: string
           confidence?: number
@@ -1547,6 +1550,7 @@ export type Database = {
       }
       root_causes: {
         Row: {
+          is_current: boolean
           account_id: string | null
           cause_key: string
           chain: Json
@@ -1561,6 +1565,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          is_current?: boolean
           account_id?: string | null
           cause_key: string
           chain?: Json
@@ -1575,6 +1580,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          is_current?: boolean
           account_id?: string | null
           cause_key?: string
           chain?: Json
