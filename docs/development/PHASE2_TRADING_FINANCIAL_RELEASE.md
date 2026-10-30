@@ -75,3 +75,12 @@ Postgres performs authoritative numeric(18,2) settlement in `tradeos_binary_cont
 - The generic CSV importer blocks writing until Phase 2 activation; this prevents creating more unreconcilable/duplicated entries in an unprotected database.
 - The statistical Truth Engine still needs separate causality and data-quality evaluation for forecasting; payout mathematics alone does not certify AI recommendations.
 - The data-query layer uses paginated browser tables for some dashboards; full historical analytics require server-side aggregation before very large user histories are certified.
+
+## Additional financial safeguards
+- A change to binary settlement, payout, fee, rebate or stake is now processed by the account-balance delta trigger even when the UPDATE statement does not explicitly set the `pnl` column.
+- User-entered profit earmarks cannot exceed total realized, previously unallocated profit; their validation locks the account row to serialize concurrent requests.
+- Trades cannot be moved from an account in one currency to an account in another currency without explicit FX reconciliation.
+- Cash withdrawals cannot exceed recorded cash balance; self-reported entries still require statement verification.
+- Generic, MT4 and MT5 CSV imports expose a choice between **gross P&L** (subtract separate fees) and **already net P&L** (do not subtract fees again), plus broker UTC offset. Misidentifying the broker format is a data quality issue, not solved by application arithmetic.
+- Import processing deliberately fails without Phase 2 schema activation to avoid duplicate financial postings on the legacy unprotected importer.
+- The database must be tested with at least: trade UPDATE of only `binary_settlement`; account-currency transfers; concurrent allocation requests; partial-fee refunds; duplicate request retries.
