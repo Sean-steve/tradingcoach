@@ -1839,6 +1839,13 @@ export type Database = {
       }
       trades: {
         Row: {
+          contract_type: "spot" | "binary"
+          binary_outcome: "pending" | "win" | "loss" | "push" | "void" | null
+          payout_percent: number | null
+          expires_at: string | null
+          refund_amount: number | null
+          import_source: "csv" | "broker" | null
+          source_key: string | null
           account_id: string
           asset: string
           checklist_completed: boolean | null
@@ -1878,6 +1885,13 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          contract_type?: "spot" | "binary"
+          binary_outcome?: "pending" | "win" | "loss" | "push" | "void" | null
+          payout_percent?: number | null
+          expires_at?: string | null
+          refund_amount?: number | null
+          import_source?: "csv" | "broker" | null
+          source_key?: string | null
           account_id: string
           asset: string
           checklist_completed?: boolean | null
@@ -1917,6 +1931,13 @@ export type Database = {
           user_id: string
         }
         Update: {
+          contract_type?: "spot" | "binary"
+          binary_outcome?: "pending" | "win" | "loss" | "push" | "void" | null
+          payout_percent?: number | null
+          expires_at?: string | null
+          refund_amount?: number | null
+          import_source?: "csv" | "broker" | null
+          source_key?: string | null
           account_id?: string
           asset?: string
           checklist_completed?: boolean | null
@@ -2078,6 +2099,26 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      tradeos_phase2_ready: {
+        Args: Record<string, never>
+        Returns: boolean
+      }
+      tradeos_import_trades: {
+        Args: { p_account: string; p_rows: Json }
+        Returns: { inserted: number; skipped_duplicates: number }
+      }
+      tradeos_balance_variances: {
+        Args: Record<string, never>
+        Returns: Array<{
+          account_id: string
+          account_name: string
+          starting_balance: number
+          current_balance: number
+          trade_pnl: number
+          variance: number
+        }>
+      }
+
       tradeos_foundation_ready: {
         Args: Record<string, never>
         Returns: boolean
