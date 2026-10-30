@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense, useMemo } from "react";
 import { accountsQuery, tradesQuery } from "@/lib/queries";
+import { useActiveAccountId } from "@/lib/active-account";
+import { binaryAnalytics } from "@/lib/binary-options";
 import { computeMetrics, rollingPerformance, heatmapData, rollup, bucketDay, bucketWeek, bucketMonth, bucketQuarter, bucketYear, type TradeLike } from "@/lib/metrics";
 import { Card } from "@/components/ui/card";
 import { StatCard } from "@/components/stat-card";
@@ -20,8 +22,11 @@ export const Route = createFileRoute("/_authenticated/analytics")({
 
 function Analytics() {
   const { data: accounts } = useSuspenseQuery(accountsQuery());
-  const { data: trades } = useSuspenseQuery(tradesQuery(accounts[0]?.id));
-  const startBal = Number(accounts[0]?.starting_balance ?? 10000);
+  const { activeId } = useActiveAccountId();
+  const account = accounts.find(a => a.id === activeId) ?? accounts[0];
+  const { data: trades } = useSuspenseQuery(tradesQuery(account?.id));
+  const startBal = Number(account?.starting_balance ?? 10000);
+  const binary = binaryAnalytics(trades);
   const m = computeMetrics(trades as unknown as TradeLike[], startBal);
 
   const equity = m.equityCurve.map((e, i) => ({ i, balance: Number(e.balance.toFixed(2)) }));
@@ -30,8 +35,9 @@ function Analytics() {
   const byMonth = useMemo(() => {
     const map = new Map<string, number>();
     for (const t of trades) {
+      if (t.result === "open") continue;
       const d = new Date(t.exited_at ?? t.entered_at);
-      const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const k = d.toISOString().slice(0, 7);
       map.set(k, (map.get(k) ?? 0) + Number(t.pnl));
     }
     return [...map.entries()].sort().map(([k, v]) => ({ month: k, pnl: Number(v.toFixed(2)) }));
@@ -43,8 +49,9 @@ function Analytics() {
     const names = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     const arr = names.map((n) => ({ day: n, pnl: 0, count: 0 }));
     for (const t of trades) {
+      if (t.result === "open") continue;
       const d = new Date(t.exited_at ?? t.entered_at);
-      const idx = d.getDay();
+      const idx = d.getUTCDay();
       arr[idx].pnl += Number(t.pnl);
       arr[idx].count += 1;
     }
@@ -54,6 +61,7 @@ function Analytics() {
   return (
     <div className="p-8 max-w-[1600px] mx-auto space-y-6">
       <h1 className="text-3xl font-bold tracking-tight">Advanced Analytics</h1>
+      <p className="text-sm text-muted-foreground">Account: {account?.name ?? "All"} · Realized trade results. Monthly and weekday bucketing uses UTC.</p>
 
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
         <StatCard label="Trades" value={m.tradesCount} />
@@ -63,6 +71,21 @@ function Analytics() {
         <StatCard label="Expectancy" value={formatMoney(m.expectancy, "USD", { sign: true })} tone={pnlTone(m.expectancy)} />
         <StatCard label="Max DD" value={formatPct(m.maxDrawdownPct)} tone="warn" />
       </div>
+
+      {binary.total > 0 && (
+        <Card className="glow-card p-6 border-border/40 space-y-3">
+          <h2 className="font-semibold">Binary Options — Payout-Aware Performance</h2>
+          <p className="text-xs text-muted-foreground">Push and void contracts do not enter the win-rate denominator. Returns are measured against staked capital, not broker gross payouts.</p>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <StatCard label="Settled contracts" value={binary.total} />
+            <StatCard label="Decisive win rate" value={binary.winRate == null ? "—" : formatPct(binary.winRate)} />
+            <StatCard label="Average payout" value={binary.averagePayoutPct == null ? "—" : formatPct(binary.averagePayoutPct)} />
+            <StatCard label="No-fee breakeven" value={binary.breakevenWinRatePct == null ? "—" : formatPct(binary.breakevenWinRatePct)} />
+            <StatCard label="Net P&L" value={formatMoney(binary.realizedNetPnl, "USD", { sign: true })} tone={pnlTone(binary.realizedNetPnl)} />
+          </div>
+          <p className="text-xs text-muted-foreground">{binary.refunded} push/void settlements; total settled stake {formatMoney(binary.totalStaked)}.</p>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card className="glow-card p-6 border-border/40">
