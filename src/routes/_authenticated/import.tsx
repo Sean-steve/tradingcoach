@@ -170,7 +170,7 @@ function ImportPage() {
       const userId = userData.user.id;
       const inserts: TradeInsert[] = [];
       const invalid: string[] = [];
-      const source = preset === "binary" ? "binary_csv" : preset;
+      const source = preset === "binary" ? "binary_csv" : preset === "generic" ? "csv" : preset;
       for (const [i,row] of rows.entries()) {
         try {
           const val = (key: string): string => (mapping[key] ? String(row[mapping[key]] ?? "").trim() : "");
