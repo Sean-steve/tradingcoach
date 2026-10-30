@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { accountsQuery, strategiesQuery, mistakeCatalogQuery, tradesQuery, interventionsQuery, tomQuery } from "@/lib/queries";
 import { sessionFromDate } from "@/lib/metrics";
@@ -22,6 +22,8 @@ import { useActiveAccountId } from "@/lib/active-account";
 import { isFoundationMigrationActive } from "@/lib/foundation-readiness";
 import { useServerFn } from "@tanstack/react-start";
 import { runIntelligence } from "@/lib/intelligence.functions";
+import { isPhase2Active } from "@/lib/phase2-readiness";
+import { calculateBinarySettlement, validateBinaryExpiry, type BinarySettlement } from "@/lib/binary-options";
 
 export const Route = createFileRoute("/_authenticated/trades/new")({
   component: () => (
@@ -46,6 +48,14 @@ function NewTrade() {
   const activeManual = manualVersions.find((m) => m.is_active);
 
   const [saving, setSaving] = useState(false);
+  const [phase2Active, setPhase2Active] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    isPhase2Active().then(ready => { if (alive) setPhase2Active(ready); })
+      .catch((err: unknown) => console.error("Phase 2 readiness check failed", err));
+    return () => { alive = false; };
+  }, []);
+
   const [reflection, setReflection] = useState("");
   const [unlocked, setUnlocked] = useState<boolean>(false);
   const [screenshots, setScreenshots] = useState<{ file: File; kind: string; preview: string }[]>([]);
@@ -55,6 +65,11 @@ function NewTrade() {
   const [form, setForm] = useState({
     account_id: activeId ?? accounts[0]?.id ?? "",
     strategy_id: "",
+    instrument_type: "spot" as "spot" | "binary_option",
+    binary_expiry_at: "",
+    binary_payout_percent: "80",
+    binary_settlement: "win" as BinarySettlement,
+    binary_refund_amount: "",
     asset: "",
     setup: "",
     direction: "long" as "long" | "short",
@@ -96,6 +111,18 @@ function NewTrade() {
   });
 
   const update = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm((f) => ({ ...f, [k]: v }));
+
+  const binaryMode = form.instrument_type === "binary_option";
+  const previewBinary = (() => {
+    if (!binaryMode || !form.stake || !form.binary_payout_percent) return null;
+    try {
+      return calculateBinarySettlement({
+        stake: Number(form.stake), payoutPercent: Number(form.binary_payout_percent),
+        fees: Number(form.fees || 0), settlement: form.binary_settlement,
+        refundAmount: form.binary_refund_amount ? Number(form.binary_refund_amount) : undefined,
+      });
+    } catch { return null; }
+  })();
 
   // Loss-lock computation for the currently selected account
   const selectedAcct = accounts.find((a) => a.id === form.account_id) ?? accounts[0];
@@ -188,12 +215,20 @@ function NewTrade() {
       const foundationActive = await isFoundationMigrationActive();
       if (foundationActive && !activeManual) throw new Error("Publish your Trading Operating Manual before logging a new trade.");
 
+      const phase2Ready = await isPhase2Active();
+      if (binaryMode && !phase2Ready) throw new Error("Binary contracts require the Phase 2 database migration.");
+      if (binaryMode) validateBinaryExpiry(form.entered_at, form.binary_expiry_at);
+      const binary = binaryMode ? calculateBinarySettlement({
+        stake: Number(form.stake), payoutPercent: Number(form.binary_payout_percent),
+        fees: Number(form.fees || 0), settlement: form.binary_settlement,
+        refundAmount: form.binary_refund_amount ? Number(form.binary_refund_amount) : undefined,
+      }) : null;
       const enteredAt = new Date(form.entered_at);
-      const exitedAt = form.exited_at ? new Date(form.exited_at) : null;
+      const exitedAt = binaryMode ? (form.binary_settlement === "open" ? null : new Date(form.binary_expiry_at)) : form.exited_at ? new Date(form.exited_at) : null;
       const duration = exitedAt ? Math.round((+exitedAt - +enteredAt) / 1000) : null;
-      const pnl = Number(form.pnl || 0) - Number(form.fees || 0);
+      const pnl = binary ? binary.pnl : Number(form.pnl || 0) - Number(form.fees || 0);
       if (form.result === "open" && pnl !== 0) throw new Error("Open trades cannot have realized P&L.");
-      const result: TradeInsert["result"] = form.result === "open" ? "open" : pnl > 0 ? "win" : pnl < 0 ? "loss" : "breakeven";
+      const result: TradeInsert["result"] = binary ? binary.result : form.result === "open" ? "open" : pnl > 0 ? "win" : pnl < 0 ? "loss" : "breakeven";
 
       const insertData: TradeInsert = {
         user_id: userId,
@@ -219,6 +254,15 @@ function NewTrade() {
         pnl,
         fees: Number(form.fees || 0),
         result,
+        ...(phase2Ready ? {
+          instrument_type: form.instrument_type,
+          ...(binaryMode ? {
+            binary_expiry_at: new Date(form.binary_expiry_at).toISOString(),
+            binary_payout_ratio: Number(form.binary_payout_percent) / 100,
+            binary_settlement: form.binary_settlement === "open" ? null : form.binary_settlement,
+            binary_refund_amount: binary?.refundedPrincipal ?? 0,
+          } : {}),
+        } : {}),
         duration_seconds: duration,
         confidence: form.confidence,
         setup_quality: form.setup_quality,
@@ -406,6 +450,17 @@ function NewTrade() {
             </Select>
           </div>
           <div>
+            <Label>Contract type</Label>
+            <Select value={form.instrument_type} onValueChange={(v) => update("instrument_type", v as typeof form.instrument_type)}>
+              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="spot">Spot / Forex / Other</SelectItem>
+                {phase2Active && <SelectItem value="binary_option">Binary option</SelectItem>}
+              </SelectContent>
+            </Select>
+            {!phase2Active && <p className="text-[11px] text-muted-foreground mt-1">Binary options become available after database activation.</p>}
+          </div>
+          <div>
             <Label>Asset *</Label>
             <Input required value={form.asset} onChange={(e) => update("asset", e.target.value)} placeholder="EURUSD, BTCUSD, SPY…" className="mt-1" />
           </div>
@@ -424,12 +479,12 @@ function NewTrade() {
             </Select>
           </div>
           <div>
-            <Label>Direction</Label>
+            <Label>{binaryMode ? "Direction (CALL / PUT)" : "Direction"}</Label>
             <Select value={form.direction} onValueChange={(v) => update("direction", v as "long" | "short")}>
               <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="long">Long</SelectItem>
-                <SelectItem value="short">Short</SelectItem>
+                <SelectItem value="long">{binaryMode ? "CALL" : "Long"}</SelectItem>
+                <SelectItem value="short">{binaryMode ? "PUT" : "Short"}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -447,6 +502,7 @@ function NewTrade() {
             <Label>Entered at *</Label>
             <Input required type="datetime-local" value={form.entered_at} onChange={(e) => update("entered_at", e.target.value)} className="mt-1" />
           </div>
+          {!binaryMode && <>
           <div>
             <Label>Exited at</Label>
             <Input type="datetime-local" value={form.exited_at} onChange={(e) => update("exited_at", e.target.value)} className="mt-1" />
@@ -471,14 +527,16 @@ function NewTrade() {
             <Label>Size</Label>
             <Input type="number" step="any" value={form.position_size} onChange={(e) => update("position_size", e.target.value)} className="mt-1" />
           </div>
+          </>}
           <div>
-            <Label>Stake $</Label>
+            <Label>Stake ({selectedAcct?.currency ?? "USD"})</Label>
             <Input type="number" step="any" value={form.stake} onChange={(e) => update("stake", e.target.value)} className="mt-1" />
           </div>
           <div>
             <Label>Risk %</Label>
             <Input type="number" step="0.01" value={form.risk_pct} onChange={(e) => update("risk_pct", e.target.value)} className="mt-1" />
           </div>
+          {!binaryMode && <>
           <div>
             <Label>Planned R:R</Label>
             <Input type="number" step="0.1" value={form.planned_rr} onChange={(e) => update("planned_rr", e.target.value)} className="mt-1" />
@@ -487,15 +545,18 @@ function NewTrade() {
             <Label>Realized R:R</Label>
             <Input type="number" step="0.1" value={form.realized_rr} onChange={(e) => update("realized_rr", e.target.value)} className="mt-1" />
           </div>
+          </>}
           <div>
-            <Label>Fees</Label>
+            <Label>Fees ({selectedAcct?.currency ?? "USD"})</Label>
             <Input type="number" step="0.01" value={form.fees} onChange={(e) => update("fees", e.target.value)} className="mt-1" />
           </div>
+          {!binaryMode && <>
           <div>
             <Label>P&L (gross) *</Label>
             <Input required type="number" step="0.01" value={form.pnl} onChange={(e) => update("pnl", e.target.value)} className="mt-1" placeholder="e.g. 125 or -80" />
           </div>
-          <div>
+          </>}
+          {!binaryMode && <div>
             <Label>Result</Label>
             <Select value={form.result} onValueChange={(v) => update("result", v as typeof form.result)}>
               <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
@@ -506,8 +567,42 @@ function NewTrade() {
                 <SelectItem value="open">Still open</SelectItem>
               </SelectContent>
             </Select>
-          </div>
+          </div>}
+          {binaryMode && <>
+            <div>
+              <Label>Expiry *</Label>
+              <Input required type="datetime-local" value={form.binary_expiry_at} onChange={e => update("binary_expiry_at",e.target.value)} className="mt-1" />
+            </div>
+            <div>
+              <Label>Net payout on win (%) *</Label>
+              <Input required type="number" min="0" max="10000" step="0.0001" value={form.binary_payout_percent} onChange={e => update("binary_payout_percent",e.target.value)} className="mt-1" />
+            </div>
+            <div>
+              <Label>Contract settlement</Label>
+              <Select value={form.binary_settlement} onValueChange={v => update("binary_settlement",v as BinarySettlement)}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="win">WIN</SelectItem>
+                  <SelectItem value="loss">LOSS</SelectItem>
+                  <SelectItem value="push">PUSH / refunded</SelectItem>
+                  <SelectItem value="void">VOID / cancelled</SelectItem>
+                  <SelectItem value="open">Unsettled</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {form.binary_settlement === "loss" && <div>
+              <Label>Principal rebate / refund</Label>
+              <Input type="number" min="0" step="0.01" value={form.binary_refund_amount} onChange={e => update("binary_refund_amount",e.target.value)} className="mt-1" />
+            </div>}
+          </>}
         </div>
+        {binaryMode && <div className="rounded-lg border border-border p-4 text-sm">
+          {previewBinary ? <>
+            <p className="font-semibold">Calculated net P&L: {previewBinary.pnl.toFixed(2)} {selectedAcct?.currency ?? "USD"}</p>
+            <p className="text-muted-foreground">Payout is NET profit on stake, not gross return. Stake principal is not booked as income.</p>
+            <p className="text-muted-foreground">Break-even win rate: {Number.isFinite(previewBinary.breakevenWinRate) ? previewBinary.breakevenWinRate.toFixed(2) + "%" : "Not attainable"}. Loss rebates and fees affect this threshold.</p>
+          </> : <p className="text-loss">Enter valid stake, payout percentage, fees and settlement for a preview.</p>}
+        </div>}
       </Card>
 
       <Card className="glow-card p-6 border-border/40 space-y-4">
