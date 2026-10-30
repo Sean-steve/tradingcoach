@@ -1,6 +1,7 @@
 import { queryOptions } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { isPhase4Active } from "@/lib/foundation-readiness";
 
 export type TradeRow = Database["public"]["Tables"]["trades"]["Row"];
 
@@ -407,3 +408,50 @@ export const graphEdgesQuery = (accountId?: string) =>
       return data ?? [];
     },
   });
+
+export const profilePreferencesQuery = () =>
+  queryOptions({
+    queryKey: ["tradeos_profile_preferences"],
+    queryFn: async () => {
+      const { data: auth, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!auth.user) return null;
+      const { data, error } = await supabase.from("profiles").select("base_currency,timezone").eq("id",auth.user.id).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+export const goalMilestonesQuery = () => queryOptions({
+  queryKey: ["goal_milestones"],
+  queryFn: async () => {
+    if (!(await isPhase4Active())) return [] as Database["public"]["Tables"]["goal_milestones"]["Row"][];
+    const { data,error } = await supabase.from("goal_milestones").select("*").order("created_at");
+    if (error) throw error;
+    return data ?? [];
+  },
+});
+
+export const lifestyleRewardsQuery = (accountId?: string) => queryOptions({
+  queryKey: ["lifestyle_rewards",accountId??"all"],
+  queryFn: async () => {
+    if (!(await isPhase4Active())) return [] as Database["public"]["Tables"]["lifestyle_rewards"]["Row"][];
+    let q = supabase.from("lifestyle_rewards").select("*").order("created_at",{ascending:false});
+    if (accountId) q=q.eq("account_id",accountId);
+    const { data,error }=await q;
+    if (error) throw error;
+    return data??[];
+  },
+});
+
+export const rewardFundingEventsQuery = (accountId?: string) => queryOptions({
+  queryKey: ["reward_funding_events",accountId??"all"],
+  queryFn: async () => {
+    if (!(await isPhase4Active())) return [] as Database["public"]["Tables"]["reward_funding_events"]["Row"][];
+    let q=supabase.from("reward_funding_events").select("*").order("created_at",{ascending:false});
+    if (accountId) q=q.eq("account_id",accountId);
+    const { data,error }=await q;
+    if (error) throw error;
+    return data??[];
+  },
+});
