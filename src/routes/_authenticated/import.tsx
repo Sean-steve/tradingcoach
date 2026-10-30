@@ -1,5 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { isFoundationMigrationActive } from "@/lib/foundation-readiness";
+import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense, useState } from "react";
 import Papa from "papaparse";
@@ -29,7 +28,6 @@ export const Route = createFileRoute("/_authenticated/import")({
 type TradeInsert = Database["public"]["Tables"]["trades"]["Insert"];
 
 function ImportPage() {
-  const navigate = useNavigate();
   const { data: accounts } = useSuspenseQuery(accountsQuery());
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? "");
   const [rows, setRows] = useState<Record<string, string>[]>([]);
@@ -65,7 +63,8 @@ function ImportPage() {
         take_profit: find(["T / P", "T/P", "TP"]),
         position_size: find(["Size", "Lots"]),
         pnl: find(["Profit"]),
-        fees: find(["Commission", "Swap"]),
+        fees: find(["Commission", "Fee"]),
+        source_trade_id: find(["Ticket","Order ID"]),
       });
     } else if (p === "binary") {
       setMapping({
@@ -92,7 +91,8 @@ function ImportPage() {
         take_profit: find(["T / P", "TP"]),
         position_size: find(["Volume"]),
         pnl: find(["Profit"]),
-        fees: find(["Commission", "Fee", "Swap"]),
+        fees: find(["Commission", "Fee"]),
+        source_trade_id: find(["Ticket","Order","Deal"]),
       });
     }
   };
@@ -187,7 +187,9 @@ function ImportPage() {
           const fees = preset === "mt4" || preset === "mt5" ? Math.abs(parsedFees) : parsedFees;
           if (!Number.isFinite(fees) || fees < 0) throw new Error("Invalid fees");
           const rawPnl = Number(val("pnl") || 0);
+          if (!binary && !val("pnl")) throw new Error("Missing P&L value");
           if (!binary && !Number.isFinite(rawPnl)) throw new Error("Invalid P&L");
+          if (!binary && !exitedAt && rawPnl !== 0) throw new Error("Settled P&L cannot be imported without an exit/settlement timestamp");
           let settlement: BinarySettlement = "open";
           let binaryData: Partial<TradeInsert> = {};
           let finalPnl = pnlColumnType === "gross" ? rawPnl - fees : rawPnl;
