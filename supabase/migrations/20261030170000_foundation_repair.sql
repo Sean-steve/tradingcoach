@@ -211,6 +211,10 @@ END $$;
 REVOKE ALL ON FUNCTION public.finish_intelligence_job(uuid,bigint,boolean,text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.finish_intelligence_job(uuid,bigint,boolean,text) TO service_role;
 
+-- Existing accounts also need a first full intelligence refresh after deployment.
+INSERT INTO public.intelligence_jobs(account_id,user_id)
+  SELECT id,user_id FROM public.accounts ON CONFLICT (account_id) DO NOTHING;
+
 -- A per-user, per-function hourly quota, atomically consumed via a protected RPC.
 CREATE TABLE public.ai_request_quota (
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
