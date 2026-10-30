@@ -506,7 +506,11 @@ export async function loadTruthContext(supabase: DB, userId: string, accountId: 
     validated_insights: (insights ?? []).map((i) => ({
       claim: i.claim,
       sample_size: i.sample_size,
+      // Confidence is a compatibility evidence index; adjusted q controls validity.
       confidence: Number(i.confidence),
+      adjusted_q_value: i.q_value == null ? null : Number(i.q_value),
+      ci_low: i.ci_low == null ? null : Number(i.ci_low),
+      ci_high: i.ci_high == null ? null : Number(i.ci_high),
       impact_estimate: Number(i.impact_estimate ?? 0),
       category: i.category,
     })),
