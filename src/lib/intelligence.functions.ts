@@ -9,6 +9,11 @@ export const runIntelligence = createServerFn({ method: "POST" })
     return { accountId: id };
   })
   .handler(async ({ data, context }) => {
+    const { data: allowed, error: quotaError } = await context.supabase.rpc("consume_ai_quota", {
+      p_function: "runIntelligence",
+    });
+    if (quotaError) throw new Error("Unable to verify request quota");
+    if (!allowed) throw new Error("Hourly AI request limit reached; try again later.");
     const { runIntelligencePipeline } = await import("@/lib/intelligence.server");
     return runIntelligencePipeline(context.supabase, context.userId, data.accountId);
   });
