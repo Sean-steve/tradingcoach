@@ -233,6 +233,48 @@ REVOKE EXECUTE ON FUNCTION public.tradeos_import_count_insert() FROM PUBLIC, ano
 CREATE TRIGGER trg_tradeos_import_count AFTER INSERT ON public.trades
 FOR EACH ROW EXECUTE FUNCTION public.tradeos_import_count_insert();
 
+-- Earmarks are *not cash withdrawals*, but cannot exceed realized
+-- profits. Lock the account row to serialize two simultaneous allocations.
+-- Existing historical earmarks are left untouched for reconciliation.
+CREATE OR REPLACE FUNCTION public.tradeos_validate_profit_allocation()
+RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $
+DECLARE realized numeric; earmarked numeric; account_owner uuid;
+BEGIN
+  IF NEW.amount <= 0 THEN RAISE EXCEPTION 'Allocation amount must be positive'; END IF;
+  SELECT user_id INTO account_owner FROM public.accounts WHERE id = NEW.account_id FOR UPDATE;
+  IF account_owner IS NULL OR account_owner <> NEW.user_id THEN
+    RAISE EXCEPTION 'Allocation account ownership mismatch';
+  END IF;
+  SELECT coalesce(sum(pnl),0) INTO realized FROM public.trades
+    WHERE account_id = NEW.account_id AND result <> 'open';
+  SELECT coalesce(sum(amount),0) INTO earmarked FROM public.profit_allocations
+    WHERE account_id = NEW.account_id
+    AND (TG_OP <> 'UPDATE' OR id <> NEW.id);
+  IF NEW.amount > greatest(0,realized) - earmarked THEN
+    RAISE EXCEPTION 'Allocation exceeds realized, unallocated profit';
+  END IF;
+  RETURN NEW;
+END $;
+CREATE TRIGGER trg_tradeos_profit_allocation BEFORE INSERT OR UPDATE OF amount,account_id,user_id
+ON public.profit_allocations FOR EACH ROW EXECUTE FUNCTION public.tradeos_validate_profit_allocation();
+
+-- Guard against silently moving the same historical P&L between currencies.
+CREATE OR REPLACE FUNCTION public.tradeos_no_cross_currency_trade_move()
+RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $
+DECLARE old_currency text; new_currency text;
+BEGIN
+  IF NEW.account_id IS NOT DISTINCT FROM OLD.account_id THEN RETURN NEW; END IF;
+  SELECT currency INTO old_currency FROM public.accounts WHERE id = OLD.account_id;
+  SELECT currency INTO new_currency FROM public.accounts WHERE id = NEW.account_id;
+  IF old_currency IS DISTINCT FROM new_currency THEN
+    RAISE EXCEPTION 'Cannot move a trade between accounts with different currencies without FX reconciliation';
+  END IF;
+  RETURN NEW;
+END $;
+CREATE TRIGGER trg_tradeos_no_cross_currency_trade_move
+BEFORE UPDATE OF account_id ON public.trades FOR EACH ROW
+EXECUTE FUNCTION public.tradeos_no_cross_currency_trade_move();
+
 -- Read-only activation probe. Supabase PostgREST PGRST202 = not yet applied.
 CREATE OR REPLACE FUNCTION public.tradeos_phase2_ready()
 RETURNS boolean LANGUAGE sql STABLE SECURITY INVOKER SET search_path = '' AS $$ SELECT true $$;
