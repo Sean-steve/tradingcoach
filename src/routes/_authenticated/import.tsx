@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { isFoundationMigrationActive } from "@/lib/foundation-readiness";
+import { isPhase2Active } from "@/lib/foundation-readiness";
+import { normalizeCsvRows } from "@/lib/csv-import";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense, useState } from "react";
 import Papa from "papaparse";
@@ -33,6 +34,8 @@ function ImportPage() {
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [preset, setPreset] = useState<"generic" | "mt4" | "mt5">("generic");
+  const [contractType, setContractType] = useState<"spot" | "binary">("spot");
+  const [importFeedback, setImportFeedback] = useState("");
 
   const applyPreset = (p: "generic" | "mt4" | "mt5") => {
     setPreset(p);
@@ -89,6 +92,11 @@ function ImportPage() {
     { key: "stake", label: "Stake / Notional" },
     { key: "pnl", label: "P&L / Profit", required: true },
     { key: "fees", label: "Fees / Commission" },
+    { key: "source_key", label: "Broker ticket / trade ID (recommended)" },
+    { key: "expires_at", label: "Binary expiry" },
+    { key: "binary_outcome", label: "Binary outcome" },
+    { key: "payout_percent", label: "Binary payout %" },
+    { key: "refund_amount", label: "Binary refund amount" },
   ];
 
   const handleFile = (file: File) => {
@@ -118,6 +126,11 @@ function ImportPage() {
         auto.position_size = find("volume", "size", "lots", "qty");
         auto.pnl = find("profit", "pnl", "p&l", "p/l", "net");
         auto.fees = find("commission", "fee", "swap");
+        auto.source_key = find("ticket", "order id", "trade id", "deal", "transaction id");
+        auto.expires_at = find("expiry", "expiration");
+        auto.binary_outcome = find("outcome", "status");
+        auto.payout_percent = find("payout rate", "payout percent", "payout %");
+        auto.refund_amount = find("refund amount", "refund");
         setMapping(auto);
       },
       error: (err) => toast.error(err.message),
@@ -126,67 +139,39 @@ function ImportPage() {
 
   const runImport = async () => {
     if (!accountId) { toast.error("Pick an account"); return; }
-    for (const f of FIELDS) if (f.required && !mapping[f.key as string]) { toast.error(`Map "${f.label}"`); return; }
-
+    const required = contractType === "binary"
+      ? ["asset","entered_at","expires_at","stake","payout_percent","binary_outcome"]
+      : ["asset","entered_at","pnl"];
+    for (const field of required) {
+      if (!mapping[field]) { toast.error("Map required column: " + field); return; }
+    }
     setBusy(true);
+    setImportFeedback("");
+    let committed = 0;
+    let duplicates = 0;
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      const userId = userData.user?.id!;
-      const inserts: TradeInsert[] = [];
-      for (const row of rows) {
-        const val = (k: string) => (mapping[k] ? row[mapping[k]] : "");
-        const dirRaw = (val("direction") || "long").toLowerCase();
-        const direction: TradeInsert["direction"] = dirRaw.includes("sell") || dirRaw.includes("short") ? "short" : "long";
-        const enteredAt = parseDate(val("entered_at"));
-        if (!enteredAt) continue;
-        const exitedAt = parseDate(val("exited_at"));
-        const pnl = Number(val("pnl") || 0) - Number(val("fees") || 0);
-        const result: TradeInsert["result"] = pnl > 0 ? "win" : pnl < 0 ? "loss" : "breakeven";
-        inserts.push({
-          user_id: userId,
-          account_id: accountId,
-          asset: (val("asset") || "UNKNOWN").toUpperCase(),
-          direction,
-          session: sessionFromDate(enteredAt),
-          entered_at: enteredAt.toISOString(),
-          exited_at: exitedAt?.toISOString() ?? null,
-          entry_price: numOrNull(val("entry_price")),
-          exit_price: numOrNull(val("exit_price")),
-          stop_loss: numOrNull(val("stop_loss")),
-          take_profit: numOrNull(val("take_profit")),
-          position_size: numOrNull(val("position_size")),
-          stake: numOrNull(val("stake")),
-          pnl,
-          fees: Number(val("fees") || 0),
-          result,
-          duration_seconds: exitedAt ? Math.round((+exitedAt - +enteredAt) / 1000) : null,
+      if (!(await isPhase2Active())) {
+        throw new Error("Apply Phase 2 database migration before using protected imports");
+      }
+      // Normalization validates each input before ANY database write.
+      const normalized = await normalizeCsvRows(rows, mapping, contractType);
+      // Every call is atomic. A partially completed multi-batch import is
+      // safely resumable using deterministic source_key collision detection.
+      for (let i = 0; i < normalized.length; i += 500) {
+        const { data, error } = await supabase.rpc("tradeos_import_trades", {
+          p_account: accountId,
+          p_rows: normalized.slice(i,i+500) as never,
         });
-      }
-      // A read-only DB capability probe prevents double application of P&L
-      // during rolling deployments of the foundation migration.
-      const foundationActive = await isFoundationMigrationActive();
-      // chunk inserts
-      const CHUNK = 500;
-      for (let i = 0; i < inserts.length; i += CHUNK) {
-        const { error } = await supabase.from("trades").insert(inserts.slice(i, i + CHUNK));
         if (error) throw error;
+        committed += Number(data?.inserted ?? 0);
+        duplicates += Number(data?.skipped_duplicates ?? 0);
       }
-      if (!foundationActive) {
-        // Preserve pre-migration behavior; after migration the trade trigger
-        // owns transactional account balance adjustments.
-        const acct = accounts.find((a) => a.id === accountId);
-        if (acct) {
-          const net = inserts.reduce((sum, trade) =>
-            sum + (trade.result === "open" ? 0 : Number(trade.pnl ?? 0)), 0);
-          const { error: balanceError } = await supabase.from("accounts")
-            .update({ current_balance: Number(acct.current_balance) + net }).eq("id", acct.id);
-          if (balanceError) console.error("Legacy imported balance update failed", balanceError);
-        }
-      }
-      toast.success(`Imported ${inserts.length} trades`);
-      navigate({ to: "/trades" });
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Import failed");
+      setImportFeedback("Imported " + committed + " unique trades; skipped " + duplicates + " duplicates.");
+      toast.success("Imported " + committed + " trades; " + duplicates + " duplicates skipped");
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : "Import failed";
+      setImportFeedback(reason + ". " + committed + " earlier rows committed; retry is safe.");
+      toast.error(reason);
     } finally {
       setBusy(false);
     }
@@ -200,7 +185,7 @@ function ImportPage() {
       </div>
 
       <Card className="glow-card p-6 border-border/40 space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <Label>Account</Label>
             <Select value={accountId} onValueChange={setAccountId}>
@@ -208,6 +193,13 @@ function ImportPage() {
               <SelectContent>
                 {accounts.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
               </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Product type</Label>
+            <Select value={contractType} onValueChange={(v) => setContractType(v as "spot" | "binary")}>
+              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value="spot">Standard trade</SelectItem><SelectItem value="binary">Binary options</SelectItem></SelectContent>
             </Select>
           </div>
           <div>
@@ -231,7 +223,7 @@ function ImportPage() {
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {FIELDS.map((f) => (
+              {FIELDS.filter((f) => contractType === "binary" || !["expires_at", "binary_outcome", "payout_percent", "refund_amount"].includes(f.key as string)).map((f) => (
                 <div key={f.key as string} className="flex items-center gap-3">
                   <Label className="w-40 text-sm">
                     {f.label} {f.required && <span className="text-loss">*</span>}
@@ -246,6 +238,8 @@ function ImportPage() {
                 </div>
               ))}
             </div>
+            <p className="text-xs text-muted-foreground">Each batch is an atomic database transaction. Broker ticket IDs prevent accidental duplicate imports; if no ticket exists, identical normalized rows are treated as duplicates. CSV times without timezone offsets use your browser timezone.</p>
+            {importFeedback && <p role="status" className="text-sm text-muted-foreground">{importFeedback}</p>}
             <Button onClick={runImport} disabled={busy} className="mt-2">
               {busy && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Import {rows.length} trades
