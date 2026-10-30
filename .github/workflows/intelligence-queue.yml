@@ -1,0 +1,30 @@
+name: TRADE OS — Intelligence Queue
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  process:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      TRADE_OS_APP_URL: ${{ secrets.TRADE_OS_APP_URL }}
+      TRADE_OS_CRON_SECRET: ${{ secrets.TRADE_OS_CRON_SECRET }}
+    steps:
+      - name: Invoke protected worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${TRADE_OS_APP_URL}" || -z "${TRADE_OS_CRON_SECRET}" ]]; then
+            echo "Worker not activated: configure TRADE_OS_APP_URL and TRADE_OS_CRON_SECRET."
+            exit 0
+          fi
+          curl --fail-with-body --show-error --silent --retry 2 --max-time 120 \
+            -X POST "${TRADE_OS_APP_URL%/}/api/internal/intelligence" \
+            -H "Authorization: Bearer ${TRADE_OS_CRON_SECRET}" \
+            -H "Content-Type: application/json"
