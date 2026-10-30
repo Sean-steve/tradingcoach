@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,6 +19,9 @@ import { Loader2, Upload as UploadIcon, X } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 import { evaluateTrigger, type InterventionLike, type TriggerContext } from "@/lib/interventions";
 import { useActiveAccountId } from "@/lib/active-account";
+import { isFoundationMigrationActive } from "@/lib/foundation-readiness";
+import { useServerFn } from "@tanstack/react-start";
+import { runIntelligence } from "@/lib/intelligence.functions";
 
 export const Route = createFileRoute("/_authenticated/trades/new")({
   component: () => (
@@ -33,6 +36,7 @@ type TradeInsert = Database["public"]["Tables"]["trades"]["Insert"];
 function NewTrade() {
   const navigate = useNavigate();
   const { activeId } = useActiveAccountId();
+  const runPipeline = useServerFn(runIntelligence);
   const { data: accounts } = useSuspenseQuery(accountsQuery());
   const { data: strategies } = useSuspenseQuery(strategiesQuery());
   const { data: catalog } = useSuspenseQuery(mistakeCatalogQuery());
@@ -181,7 +185,8 @@ function NewTrade() {
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData.user?.id;
       if (!userId) throw new Error("Not signed in");
-      if (!activeManual) throw new Error("Publish your Trading Operating Manual before logging a new trade.");
+      const foundationActive = await isFoundationMigrationActive();
+      if (foundationActive && !activeManual) throw new Error("Publish your Trading Operating Manual before logging a new trade.");
 
       const enteredAt = new Date(form.entered_at);
       const exitedAt = form.exited_at ? new Date(form.exited_at) : null;
@@ -292,9 +297,23 @@ function NewTrade() {
         { onConflict: "trade_id" },
       );
 
-      // Balance reconciliation and durable intelligence enqueue are atomic
-      // database triggers; do not calculate balances from stale browser state.
-      toast.success("Trade logged — intelligence refresh queued");
+      if (!foundationActive) {
+        // Backward compatibility before the database migration is applied.
+        // Once migrated, database triggers handle this transactionally.
+        const acct = accounts.find((a) => a.id === form.account_id);
+        if (acct) {
+          const { error: balanceError } = await supabase.from("accounts")
+            .update({ current_balance: Number(acct.current_balance) + (result === "open" ? 0 : pnl) })
+            .eq("id", acct.id);
+          if (balanceError) console.error("Legacy balance update failed", balanceError);
+        }
+        runPipeline({ data: { accountId: form.account_id } }).catch((error: unknown) => {
+          console.error("Legacy intelligence refresh failed", error);
+        });
+        toast.success("Trade logged");
+      } else {
+        toast.success("Trade logged — intelligence refresh queued");
+      }
       navigate({ to: "/trades" });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save trade");
@@ -304,15 +323,7 @@ function NewTrade() {
   };
 
   return (
-    !activeManual ? (
-      <div className="p-8 max-w-2xl mx-auto space-y-4">
-        <Card className="glow-card p-6 space-y-3">
-          <h1 className="text-xl font-semibold">Publish your Trading Operating Manual first</h1>
-          <p className="text-sm text-muted-foreground">New trades must be linked to the rules that were active when they were taken. Your historical imports remain available.</p>
-          <Link to="/manual" className="text-primary underline">Open Trading Operating Manual</Link>
-        </Card>
-      </div>
-    ) : isLocked ? (
+    isLocked ? (
       <div className="p-8 max-w-2xl mx-auto space-y-4">
         <Card className="glow-card border-2 border-loss/60 p-6 space-y-4">
           <div className="flex items-start gap-3">
