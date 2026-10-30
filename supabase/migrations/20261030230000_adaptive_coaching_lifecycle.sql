@@ -40,7 +40,7 @@ REVOKE INSERT, UPDATE, DELETE ON public.recommendations FROM authenticated;
 REVOKE INSERT, UPDATE, DELETE ON public.recommendation_actions FROM authenticated;
 -- Users may still modify their explicitly configured guardrails (e.g. hard-block
 -- flag); measured outcome fields are owned by the server worker.
-REVOKE UPDATE ON public.interventions FROM authenticated;
+REVOKE INSERT, UPDATE, DELETE ON public.interventions FROM authenticated;
 GRANT UPDATE (hard_block, status, resolved_at, updated_at)
   ON public.interventions TO authenticated;
 
