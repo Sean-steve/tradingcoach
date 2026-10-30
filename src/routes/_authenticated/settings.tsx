@@ -1,4 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useActiveAccountId } from "@/lib/active-account";
+
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { Suspense, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,7 +26,8 @@ function SettingsPage() {
   const { data: strategies } = useSuspenseQuery(strategiesQuery());
   const { data: rules } = useSuspenseQuery(rulesQuery());
 
-  const acct = accounts[0];
+  const { activeId } = useActiveAccountId();
+  const acct = accounts.find((a) => a.id === activeId) ?? accounts[0];
   const [balance, setBalance] = useState(String(acct?.starting_balance ?? 10000));
   const [maxDaily, setMaxDaily] = useState(String(acct?.max_daily_loss ?? ""));
   const [maxRisk, setMaxRisk] = useState(String(acct?.max_risk_pct ?? "1"));
