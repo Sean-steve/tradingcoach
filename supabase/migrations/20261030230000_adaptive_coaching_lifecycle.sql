@@ -44,6 +44,26 @@ REVOKE INSERT, UPDATE, DELETE ON public.interventions FROM authenticated;
 GRANT UPDATE (hard_block, status, resolved_at, updated_at)
   ON public.interventions TO authenticated;
 
+-- Authenticated clients can archive their guardrail or change its advisory
+-- hard-block preference; only background workers may mark evidence-based success.
+CREATE OR REPLACE FUNCTION public.tradeos_guard_client_intervention_update()
+RETURNS trigger LANGUAGE plpgsql SET search_path = '' AS $
+BEGIN
+  IF current_user = 'authenticated' THEN
+    IF NEW.status IS DISTINCT FROM OLD.status AND NEW.status <> 'archived'::public.intervention_status THEN
+      RAISE EXCEPTION 'Only the measurement service may grade a guardrail';
+    END IF;
+    IF NEW.resolved_at IS DISTINCT FROM OLD.resolved_at
+      AND NEW.status <> 'archived'::public.intervention_status THEN
+      RAISE EXCEPTION 'Review date cannot be assigned by a client';
+    END IF;
+  END IF;
+  RETURN NEW;
+END $;
+CREATE TRIGGER trg_tradeos_guard_client_intervention_update
+ BEFORE UPDATE ON public.interventions
+ FOR EACH ROW EXECUTE FUNCTION public.tradeos_guard_client_intervention_update();
+
 CREATE OR REPLACE FUNCTION public.tradeos_recommendation_action(
  p_recommendation uuid, p_action text, p_note text DEFAULT NULL, p_guardrail jsonb DEFAULT NULL
 )
