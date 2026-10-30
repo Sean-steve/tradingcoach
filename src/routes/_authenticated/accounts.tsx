@@ -351,6 +351,7 @@ function AccountCashPanel({ account, movements }: {
   const [amount,setAmount] = useState("");
   const [reference,setReference] = useState("");
   const [posting,setPosting] = useState(false);
+  const [idempotencyKey,setIdempotencyKey] = useState(() => crypto.randomUUID());
   const post = async () => {
     const amt = Number(amount);
     if (!Number.isFinite(amt)||amt<=0||Math.abs(amt*100-Math.round(amt*100))>0.000001) {
@@ -362,11 +363,11 @@ function AccountCashPanel({ account, movements }: {
       if (authError || !auth.user) throw new Error("Not authenticated");
       const { error } = await supabase.from("account_cash_movements").insert({
         user_id: auth.user.id, account_id: account.id, currency: account.currency,
-        kind, amount: amt, idempotency_key: crypto.randomUUID(),
+        kind, amount: amt, idempotency_key: idempotencyKey,
         reference: reference.trim() || null,
       });
       if (error) throw error;
-      setAmount(""); setReference("");
+      setAmount(""); setReference(""); setIdempotencyKey(crypto.randomUUID());
       await Promise.all([
         qc.invalidateQueries({queryKey:["account_cash_movements"]}),
         qc.invalidateQueries({queryKey:["accounts"]}),
@@ -381,12 +382,12 @@ function AccountCashPanel({ account, movements }: {
       <div className="font-semibold text-sm">Cash movements — {account.currency}</div>
       <p className="text-xs text-muted-foreground">Record deposits and withdrawals only after they occur. These are self-reported entries, not proof of bank/broker settlement. Profit allocations above are earmarks and never affect cash balance.</p>
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-        <Select value={kind} onValueChange={v=>setKind(v as typeof kind)}>
+        <Select value={kind} onValueChange={v=>{setKind(v as typeof kind);setIdempotencyKey(crypto.randomUUID());}}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent><SelectItem value="deposit">Deposit</SelectItem><SelectItem value="withdrawal">Withdrawal</SelectItem></SelectContent>
         </Select>
-        <Input type="number" min="0.01" step="0.01" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="Amount" />
-        <Input value={reference} onChange={e=>setReference(e.target.value)} placeholder="Broker reference (optional)" />
+        <Input type="number" min="0.01" step="0.01" value={amount} onChange={e=>{setAmount(e.target.value);setIdempotencyKey(crypto.randomUUID());}} placeholder="Amount" />
+        <Input value={reference} onChange={e=>{setReference(e.target.value);setIdempotencyKey(crypto.randomUUID());}} placeholder="Broker reference (optional)" />
         <Button disabled={posting} onClick={post}>Record cash movement</Button>
       </div>
       <div className="text-xs text-muted-foreground space-y-1">
