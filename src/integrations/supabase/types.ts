@@ -2078,6 +2078,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      tradeos_foundation_ready: {
+        Args: Record<string, never>
+        Returns: boolean
+      }
       consume_ai_quota: {
         Args: { p_function: string }
         Returns: boolean
