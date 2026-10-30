@@ -36,7 +36,7 @@ function Dashboard() {
   const { data: recs } = useSuspenseQuery(recommendationsQuery(activeId ?? undefined));
 
   const startBal = Number(active?.starting_balance ?? 10000);
-  const currency = "USD";
+  const currency = active?.currency ?? "USD";
   const m = computeMetrics(trades as unknown as TradeLike[], startBal);
   const score = performanceScore(m);
   const grade = gradeFromScore(score.total);
@@ -115,8 +115,9 @@ function Dashboard() {
           <div className="absolute inset-0 pointer-events-none opacity-60" style={{ background: "var(--gradient-glow)" }} />
           <div className="relative flex items-start justify-between gap-6">
             <div>
-              <div className="text-xs uppercase tracking-wider text-muted-foreground">Current Balance</div>
-              <div className="mt-2 number-mono text-5xl font-bold">{formatMoney(m.currentBalance, currency)}</div>
+              <div className="text-xs uppercase tracking-wider text-muted-foreground">Recorded account cash balance</div>
+              <div className="mt-2 number-mono text-5xl font-bold">{formatMoney(Number(active?.current_balance ?? m.currentBalance), currency)}</div>
+              <p className="text-xs text-muted-foreground mt-1">Trading-only equity curve excludes cash movements. Reconcile recorded balance with broker statements.</p>
               <div className="flex items-center gap-3 mt-3 text-sm">
                 <span className={`number-mono text-${pnlTone(m.netPnl)}`}>{formatMoney(m.netPnl, currency, { sign: true })}</span>
                 <span className="text-muted-foreground">·</span>
