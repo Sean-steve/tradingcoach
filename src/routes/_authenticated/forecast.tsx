@@ -27,6 +27,7 @@ function ForecastPage() {
   const { data: accounts } = useSuspenseQuery(accountsQuery());
   const { activeId } = useActiveAccountId();
   const active = accounts.find((a) => a.id === activeId) ?? accounts[0];
+  const currency = active?.currency ?? "USD";
   const { data: trades } = useSuspenseQuery(tradesQuery(active?.id));
   const startBal = Number(active?.starting_balance ?? 10000);
 
@@ -77,7 +78,7 @@ function ForecastPage() {
       {!insufficient && (
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatCard label="Median final equity" value={formatMoney(result.finalMedian)} />
+            <StatCard label="Median final equity" value={formatMoney(result.finalMedian,currency)} />
             <StatCard label="Prob. profitable" value={formatPct(result.probProfit * 100)} tone={result.probProfit >= 0.6 ? "profit" : result.probProfit >= 0.4 ? "muted" : "loss"} />
             {result.probGoal !== null && (
               <StatCard label="Prob. hit goal" value={formatPct(result.probGoal * 100)} tone={result.probGoal >= 0.5 ? "profit" : "muted"} />
@@ -86,10 +87,10 @@ function ForecastPage() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatCard label="p5 outcome" value={formatMoney(result.p5)} />
-            <StatCard label="p25" value={formatMoney(result.p25)} />
-            <StatCard label="p75" value={formatMoney(result.p75)} />
-            <StatCard label="p95 outcome" value={formatMoney(result.p95)} />
+            <StatCard label="p5 outcome" value={formatMoney(result.p5,currency)} />
+            <StatCard label="p25" value={formatMoney(result.p25,currency)} />
+            <StatCard label="p75" value={formatMoney(result.p75,currency)} />
+            <StatCard label="p95 outcome" value={formatMoney(result.p95,currency)} />
           </div>
 
           <Card className="glow-card p-6 border-border/40">
@@ -104,8 +105,8 @@ function ForecastPage() {
                     </linearGradient>
                   </defs>
                   <XAxis dataKey="step" tickFormatter={(v) => `t${v}`} stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => formatMoney(v)} />
-                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} formatter={(v: number) => formatMoney(v)} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => formatMoney(v,currency)} />
+                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} formatter={(v: number) => formatMoney(v,currency)} />
                   <Legend />
                   <Area type="monotone" dataKey="p95" stroke="none" fill="url(#cone)" name="p95" />
                   <Area type="monotone" dataKey="p5" stroke="none" fill="hsl(var(--background))" name="p5 floor" />
