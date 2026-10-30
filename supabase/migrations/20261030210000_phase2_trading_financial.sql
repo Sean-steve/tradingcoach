@@ -33,8 +33,9 @@ CREATE INDEX tradeos_binary_account_expiry
 CREATE OR REPLACE FUNCTION public.tradeos_account_currency_guard()
 RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $$
 BEGIN
-  IF NEW.currency IS DISTINCT FROM OLD.currency AND EXISTS (
-    SELECT 1 FROM public.trades t WHERE t.account_id = OLD.id
+  IF NEW.currency IS DISTINCT FROM OLD.currency AND (
+    EXISTS (SELECT 1 FROM public.trades t WHERE t.account_id = OLD.id)
+    OR EXISTS (SELECT 1 FROM public.account_cash_movements m WHERE m.account_id = OLD.id)
   ) THEN
     RAISE EXCEPTION 'Account currency cannot change after the first trade';
   END IF;
@@ -146,11 +147,15 @@ FOR INSERT TO authenticated WITH CHECK (
 CREATE OR REPLACE FUNCTION public.tradeos_cash_movement_post()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE acct_currency text;
+        acct_balance numeric;
 BEGIN
-  SELECT currency INTO acct_currency FROM public.accounts
+  SELECT currency, current_balance INTO acct_currency, acct_balance FROM public.accounts
     WHERE id = NEW.account_id AND user_id = NEW.user_id FOR UPDATE;
   IF acct_currency IS NULL OR acct_currency <> NEW.currency THEN
     RAISE EXCEPTION 'Cash movement account/currency mismatch';
+  END IF;
+  IF NEW.kind = 'withdrawal' AND acct_balance < NEW.amount THEN
+    RAISE EXCEPTION 'Recorded withdrawal exceeds available account cash balance';
   END IF;
   -- A deposit/withdrawal is manually recorded, NOT a verified bank settlement.
   PERFORM public.tradeos_post_balance_delta(
