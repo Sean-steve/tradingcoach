@@ -6,7 +6,7 @@
 
 ## 1. Reconciled foundation
 - Preserve all existing screens, historical trades, and Lovable integration.
-- New trades now require and reference an active TOM version; older trades retain their historical state.
+- New trades reference an active TOM version when present. Once the foundation migration is active, new manual trades require an active TOM; pre-migration behavior remains supported until activation.
 - The intelligence pipeline evaluates pinned trades using the associated TOM version, not the current manual.
 - The Truth Engine now uses conservative expected-count gates, an interval for differences in win rate, and a Benjamini–Yekutieli false-discovery-rate adjustment across overlapping segments. Adjusted q-values are NOT posterior probabilities.
 - Insight and recommendation identities are preserved by upsert. Stale findings are invalidated or marked non-current, not deleted as history. Evidence rows and graph projections remain materialized outputs that are refreshed.
@@ -21,12 +21,13 @@
 1. Create a database backup / restore point of the **correct** TRADE OS Supabase project.
 2. Review migration `supabase/migrations/20261030170000_foundation_repair.sql` against staging database, then apply **before** deploying app changes. Do not apply to an unrelated project.
 3. Test RLS ownership, TOM version references, trade insert/update/delete deltas, retry/lease behavior and rate limiting against staging.
-4. Deploy app code with `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and **server-only** `SUPABASE_SERVICE_ROLE_KEY`.
-5. Set a random 32+ character `TRADE_OS_CRON_SECRET` in the app's server environment.
-6. Configure GitHub Actions secrets `TRADE_OS_APP_URL` and `TRADE_OS_CRON_SECRET` (must match the app secret); enable actions for the repository.
-7. Invoke `POST /api/internal/intelligence` with `Authorization: Bearer <secret>` and confirm jobs leave `pending` to `succeeded`.
-8. Verify subsequent trade creation enqueues newer revisions, no double counting occurs, and the coach displays only currently validated insights.
-9. Complete full regression/E2E testing before merging to `main`.
+4. The application includes a read-only `tradeos_foundation_ready()` capability probe. Before migration it preserves legacy trade logging, CSV balance updates and inline intelligence refresh; after migration it switches to transactional balance triggers and durable jobs. Do not mistake this compatibility fallback for the final safety model.
+5. Deploy app code with `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and **server-only** `SUPABASE_SERVICE_ROLE_KEY`.
+6. Set a random 32+ character `TRADE_OS_CRON_SECRET` in the app's server environment.
+7. Configure GitHub Actions secrets `TRADE_OS_APP_URL` and `TRADE_OS_CRON_SECRET` (must match the app secret); enable actions for the repository.
+8. Invoke `POST /api/internal/intelligence` with `Authorization: Bearer <secret>` and confirm jobs leave `pending` to `succeeded`.
+9. Verify subsequent trade creation enqueues newer revisions, no double counting occurs, and the coach displays only currently validated insights.
+10. Complete full regression/E2E testing before merging to `main`.
 
 ## 3. Existing balances: important migration warning
 Do **not** overwrite prior balances blindly. The old app updated `accounts.current_balance` in the browser; current values may include differences not represented in trade rows (manual changes, transfers, or import anomalies). The new trigger only applies **future trade deltas**. It intentionally does not backfill or rewrite old balances.
@@ -70,3 +71,6 @@ Reconcile any variances against broker/account statements and `profit_allocation
 
 ## 6. Review process
 This branch intentionally targets a pull request into `main`. The repair must not be represented as production-certified before the correct Supabase project, migration dry-run, and CI outputs have been verified.
+
+## Merge compatibility note
+Merging the application code into `main` **does not apply** `supabase/migrations/20261030170000_foundation_repair.sql` by itself unless your hosting provider explicitly applies migrations. The branch can be integrated before migration because a read-only capability probe retains legacy behavior. This does not mean the new security, balance, and worker features are active; they remain dependent on applying and verifying the migration on the actual TRADE OS Supabase project. Once migration is applied, client-side legacy balance updates and browser-triggered intelligence refresh are no longer used.
