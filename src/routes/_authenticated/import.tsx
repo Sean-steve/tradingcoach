@@ -167,12 +167,8 @@ function ImportPage() {
         const { error } = await supabase.from("trades").insert(inserts.slice(i, i + CHUNK));
         if (error) throw error;
       }
-      // update balance
-      const acct = accounts.find((a) => a.id === accountId);
-      if (acct) {
-        const net = inserts.reduce((s, t) => s + Number(t.pnl ?? 0), 0);
-        await supabase.from("accounts").update({ current_balance: Number(acct.current_balance) + net }).eq("id", acct.id);
-      }
+      // Balance deltas are applied transactionally by the database trade trigger.
+      // Never add client-side P&L to a possibly stale account balance.
       toast.success(`Imported ${inserts.length} trades`);
       navigate({ to: "/trades" });
     } catch (e) {
