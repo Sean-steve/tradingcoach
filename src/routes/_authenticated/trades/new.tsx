@@ -119,7 +119,7 @@ function NewTrade() {
       return calculateBinarySettlement({
         stake: Number(form.stake), payoutPercent: Number(form.binary_payout_percent),
         fees: Number(form.fees || 0), settlement: form.binary_settlement,
-        refundAmount: form.binary_refund_amount ? Number(form.binary_refund_amount) : undefined,
+        refundAmount: form.binary_settlement === "loss" && form.binary_refund_amount ? Number(form.binary_refund_amount) : undefined,
       });
     } catch { return null; }
   })();
@@ -221,7 +221,7 @@ function NewTrade() {
       const binary = binaryMode ? calculateBinarySettlement({
         stake: Number(form.stake), payoutPercent: Number(form.binary_payout_percent),
         fees: Number(form.fees || 0), settlement: form.binary_settlement,
-        refundAmount: form.binary_refund_amount ? Number(form.binary_refund_amount) : undefined,
+        refundAmount: form.binary_settlement === "loss" && form.binary_refund_amount ? Number(form.binary_refund_amount) : undefined,
       }) : null;
       const enteredAt = new Date(form.entered_at);
       const exitedAt = binaryMode ? (form.binary_settlement === "open" ? null : new Date(form.binary_expiry_at)) : form.exited_at ? new Date(form.exited_at) : null;
