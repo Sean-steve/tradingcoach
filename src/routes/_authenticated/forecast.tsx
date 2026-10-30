@@ -1,4 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useActiveAccountId } from "@/lib/active-account";
+
 import { Suspense, useMemo, useState } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { accountsQuery, tradesQuery } from "@/lib/queries";
@@ -23,7 +25,8 @@ export const Route = createFileRoute("/_authenticated/forecast")({
 
 function ForecastPage() {
   const { data: accounts } = useSuspenseQuery(accountsQuery());
-  const active = accounts[0];
+  const { activeId } = useActiveAccountId();
+  const active = accounts.find((a) => a.id === activeId) ?? accounts[0];
   const { data: trades } = useSuspenseQuery(tradesQuery(active?.id));
   const startBal = Number(active?.starting_balance ?? 10000);
 
