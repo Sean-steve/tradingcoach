@@ -632,6 +632,7 @@ export type Database = {
       }
       lifestyle_rewards: {
         Row: {
+          linked_goal_id: string | null
           id: string
           user_id: string
           account_id: string
@@ -651,6 +652,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          linked_goal_id?: string | null
           id?: string
           user_id?: string
           account_id?: string
@@ -670,6 +672,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          linked_goal_id?: string | null
           id?: string
           user_id?: string
           account_id?: string
