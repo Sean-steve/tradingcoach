@@ -1468,6 +1468,7 @@ export type Database = {
       }
       recommendations: {
         Row: {
+          is_current: boolean
           account_id: string | null
           action: string
           confidence: number
@@ -1486,6 +1487,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          is_current?: boolean
           account_id?: string | null
           action: string
           confidence?: number
@@ -1504,6 +1506,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          is_current?: boolean
           account_id?: string | null
           action?: string
           confidence?: number
@@ -1547,6 +1550,7 @@ export type Database = {
       }
       root_causes: {
         Row: {
+          is_current: boolean
           account_id: string | null
           cause_key: string
           chain: Json
@@ -1561,6 +1565,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          is_current?: boolean
           account_id?: string | null
           cause_key: string
           chain?: Json
@@ -1575,6 +1580,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          is_current?: boolean
           account_id?: string | null
           cause_key?: string
           chain?: Json
@@ -2072,6 +2078,28 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      tradeos_foundation_ready: {
+        Args: Record<string, never>
+        Returns: boolean
+      }
+      consume_ai_quota: {
+        Args: { p_function: string }
+        Returns: boolean
+      }
+      claim_intelligence_jobs: {
+        Args: { p_limit?: number }
+        Returns: Array<{
+          account_id: string
+          user_id: string
+          revision: number
+          claimed_revision: number | null
+          attempts: number
+        }>
+      }
+      finish_intelligence_job: {
+        Args: { p_account: string; p_revision: number; p_success: boolean; p_error?: string | null }
+        Returns: undefined
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

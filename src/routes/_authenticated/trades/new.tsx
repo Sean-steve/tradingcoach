@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { accountsQuery, strategiesQuery, mistakeCatalogQuery, tradesQuery, interventionsQuery } from "@/lib/queries";
+import { accountsQuery, strategiesQuery, mistakeCatalogQuery, tradesQuery, interventionsQuery, tomQuery } from "@/lib/queries";
 import { sessionFromDate } from "@/lib/metrics";
 import { todayPnl, weekPnl } from "@/lib/metrics";
 import type { TradeLike } from "@/lib/metrics";
@@ -17,9 +17,11 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Loader2, Upload as UploadIcon, X } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
+import { evaluateTrigger, type InterventionLike, type TriggerContext } from "@/lib/interventions";
+import { useActiveAccountId } from "@/lib/active-account";
+import { isFoundationMigrationActive } from "@/lib/foundation-readiness";
 import { useServerFn } from "@tanstack/react-start";
 import { runIntelligence } from "@/lib/intelligence.functions";
-import { evaluateTrigger, type InterventionLike, type TriggerContext } from "@/lib/interventions";
 
 export const Route = createFileRoute("/_authenticated/trades/new")({
   component: () => (
@@ -33,12 +35,15 @@ type TradeInsert = Database["public"]["Tables"]["trades"]["Insert"];
 
 function NewTrade() {
   const navigate = useNavigate();
+  const { activeId } = useActiveAccountId();
   const runPipeline = useServerFn(runIntelligence);
   const { data: accounts } = useSuspenseQuery(accountsQuery());
   const { data: strategies } = useSuspenseQuery(strategiesQuery());
   const { data: catalog } = useSuspenseQuery(mistakeCatalogQuery());
   const { data: allTrades } = useSuspenseQuery(tradesQuery());
   const { data: interventions } = useSuspenseQuery(interventionsQuery());
+  const { data: manualVersions } = useSuspenseQuery(tomQuery());
+  const activeManual = manualVersions.find((m) => m.is_active);
 
   const [saving, setSaving] = useState(false);
   const [reflection, setReflection] = useState("");
@@ -48,7 +53,7 @@ function NewTrade() {
   const [acked, setAcked] = useState<string[]>([]);
   const [overrides, setOverrides] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
-    account_id: accounts[0]?.id ?? "",
+    account_id: activeId ?? accounts[0]?.id ?? "",
     strategy_id: "",
     asset: "",
     setup: "",
@@ -97,8 +102,13 @@ function NewTrade() {
   const acctTrades = (allTrades ?? []).filter((t) => t.account_id === selectedAcct?.id) as unknown as TradeLike[];
   const dayPnlNow = todayPnl(acctTrades);
   const weekPnlNow = weekPnl(acctTrades);
-  const dLimit = selectedAcct?.max_daily_loss ? Number(selectedAcct.max_daily_loss) : null;
-  const wLimit = selectedAcct?.max_weekly_loss ? Number(selectedAcct.max_weekly_loss) : null;
+  const manualLimits = (activeManual?.risk_limits ?? {}) as Record<string, unknown>;
+  const manualLimit = (key: string, fallback: number | null | undefined): number | null => {
+    const n = Number(manualLimits[key]);
+    return manualLimits[key] != null && Number.isFinite(n) ? n : fallback ?? null;
+  };
+  const dLimit = manualLimit("max_daily_loss", selectedAcct?.max_daily_loss == null ? null : Number(selectedAcct.max_daily_loss));
+  const wLimit = manualLimit("max_weekly_loss", selectedAcct?.max_weekly_loss == null ? null : Number(selectedAcct.max_weekly_loss));
   const dailyLocked = dLimit != null && dayPnlNow <= -dLimit;
   const weeklyLocked = wLimit != null && weekPnlNow <= -wLimit;
   const isLocked = !unlocked && (dailyLocked || weeklyLocked);
@@ -175,17 +185,22 @@ function NewTrade() {
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData.user?.id;
       if (!userId) throw new Error("Not signed in");
+      const foundationActive = await isFoundationMigrationActive();
+      if (foundationActive && !activeManual) throw new Error("Publish your Trading Operating Manual before logging a new trade.");
 
       const enteredAt = new Date(form.entered_at);
       const exitedAt = form.exited_at ? new Date(form.exited_at) : null;
       const duration = exitedAt ? Math.round((+exitedAt - +enteredAt) / 1000) : null;
       const pnl = Number(form.pnl || 0) - Number(form.fees || 0);
+      if (form.result === "open" && pnl !== 0) throw new Error("Open trades cannot have realized P&L.");
       const result: TradeInsert["result"] = form.result === "open" ? "open" : pnl > 0 ? "win" : pnl < 0 ? "loss" : "breakeven";
 
       const insertData: TradeInsert = {
         user_id: userId,
         account_id: form.account_id,
         strategy_id: form.strategy_id || null,
+        // Pin the effective manual for future audits; historical imports may remain unpinned.
+        tom_version_id: activeManual?.id ?? null,
         asset: form.asset.trim().toUpperCase(),
         setup: form.setup || null,
         direction: form.direction,
@@ -282,15 +297,23 @@ function NewTrade() {
         { onConflict: "trade_id" },
       );
 
-      // update account balance
-      const acct = accounts.find((a) => a.id === form.account_id);
-      if (acct) {
-        await supabase.from("accounts").update({ current_balance: Number(acct.current_balance) + pnl }).eq("id", acct.id);
+      if (!foundationActive) {
+        // Backward compatibility before the database migration is applied.
+        // Once migrated, database triggers handle this transactionally.
+        const acct = accounts.find((a) => a.id === form.account_id);
+        if (acct) {
+          const { error: balanceError } = await supabase.from("accounts")
+            .update({ current_balance: Number(acct.current_balance) + (result === "open" ? 0 : pnl) })
+            .eq("id", acct.id);
+          if (balanceError) console.error("Legacy balance update failed", balanceError);
+        }
+        runPipeline({ data: { accountId: form.account_id } }).catch((error: unknown) => {
+          console.error("Legacy intelligence refresh failed", error);
+        });
+        toast.success("Trade logged");
+      } else {
+        toast.success("Trade logged — intelligence refresh queued");
       }
-
-      toast.success("Trade logged");
-      // refresh the intelligence layer in the background
-      runPipeline({ data: { accountId: form.account_id } }).catch(() => {});
       navigate({ to: "/trades" });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save trade");

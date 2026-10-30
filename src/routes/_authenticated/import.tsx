@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { isFoundationMigrationActive } from "@/lib/foundation-readiness";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense, useState } from "react";
 import Papa from "papaparse";
@@ -161,17 +162,26 @@ function ImportPage() {
           duration_seconds: exitedAt ? Math.round((+exitedAt - +enteredAt) / 1000) : null,
         });
       }
+      // A read-only DB capability probe prevents double application of P&L
+      // during rolling deployments of the foundation migration.
+      const foundationActive = await isFoundationMigrationActive();
       // chunk inserts
       const CHUNK = 500;
       for (let i = 0; i < inserts.length; i += CHUNK) {
         const { error } = await supabase.from("trades").insert(inserts.slice(i, i + CHUNK));
         if (error) throw error;
       }
-      // update balance
-      const acct = accounts.find((a) => a.id === accountId);
-      if (acct) {
-        const net = inserts.reduce((s, t) => s + Number(t.pnl ?? 0), 0);
-        await supabase.from("accounts").update({ current_balance: Number(acct.current_balance) + net }).eq("id", acct.id);
+      if (!foundationActive) {
+        // Preserve pre-migration behavior; after migration the trade trigger
+        // owns transactional account balance adjustments.
+        const acct = accounts.find((a) => a.id === accountId);
+        if (acct) {
+          const net = inserts.reduce((sum, trade) =>
+            sum + (trade.result === "open" ? 0 : Number(trade.pnl ?? 0)), 0);
+          const { error: balanceError } = await supabase.from("accounts")
+            .update({ current_balance: Number(acct.current_balance) + net }).eq("id", acct.id);
+          if (balanceError) console.error("Legacy imported balance update failed", balanceError);
+        }
       }
       toast.success(`Imported ${inserts.length} trades`);
       navigate({ to: "/trades" });

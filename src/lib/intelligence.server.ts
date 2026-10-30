@@ -59,27 +59,18 @@ export interface PipelineResult {
 }
 
 export async function runIntelligencePipeline(supabase: DB, userId: string, accountId: string): Promise<PipelineResult> {
-  const [{ data: acctRows }, { data: tradeRows }, { data: checkinRows }, { data: tomRows }, { data: stratRows }, { data: mistakeRows }] =
+  const [{ data: acctRows }, { data: tradeRows }, { data: checkinRows }, { data: allManualRows }, { data: stratRows }, { data: mistakeRows }] =
     await Promise.all([
-      supabase.from("accounts").select("*").eq("id", accountId).limit(1),
+      supabase.from("accounts").select("*").eq("id", accountId).eq("user_id", userId).limit(1),
       supabase.from("trades").select("*").eq("account_id", accountId).order("entered_at", { ascending: true }),
       supabase.from("psychology_checkins").select("*").eq("user_id", userId),
-      supabase.from("tom_versions").select("*").eq("user_id", userId).eq("is_active", true).limit(1),
+      supabase.from("tom_versions").select("id,risk_limits").eq("user_id", userId),
       supabase.from("strategies").select("id,name").eq("user_id", userId),
       supabase.from("trade_mistakes").select("trade_id,mistake_code").eq("user_id", userId),
     ]);
 
   const acct = acctRows?.[0];
   if (!acct) throw new Error("Account not found");
-  const tom = tomRows?.[0];
-  const riskLimits = (tom?.risk_limits ?? {}) as Record<string, unknown>;
-
-  const limits: ManualLimits = {
-    maxRiskPct: numOrNull(riskLimits["max_risk_pct"]) ?? numOrNull(acct.max_risk_pct),
-    maxTradesPerDay: numOrNull(riskLimits["max_trades_per_day"]) ?? numOrNull(acct.max_trades_per_day),
-    maxDailyLoss: numOrNull(riskLimits["max_daily_loss"]) ?? numOrNull(acct.max_daily_loss),
-  };
-
   const trades = (tradeRows ?? []) as unknown as BehaviorTradeLike[];
   const preCheckins = (checkinRows ?? []) as unknown as CheckinLike[];
   const checkinByTrade = new Map<string, CheckinLike>();
@@ -92,8 +83,27 @@ export async function runIntelligencePipeline(supabase: DB, userId: string, acco
   const derivedRows: Database["public"]["Tables"]["behavior_events"]["Insert"][] = [];
   const scoreRows: Database["public"]["Tables"]["decision_scores"]["Insert"][] = [];
 
+  const manualLimitsById = new Map(
+    (allManualRows ?? []).map((m) => [m.id, (m.risk_limits ?? {}) as Record<string, unknown>]),
+  );
   for (const t of trades) {
-    const drafts = deriveBehaviorEvents(t, trades, checkinByTrade.get(t.id), limits);
+    const versionId = (t as unknown as { tom_version_id?: string | null }).tom_version_id;
+    const historicalLimits = versionId ? manualLimitsById.get(versionId) : null;
+    // Pinned trades are evaluated against their historical manual, never today's.
+    // Pre-version legacy trades retain account-level limits as a documented fallback.
+    const applicableLimits: ManualLimits = historicalLimits
+      ? {
+          maxRiskPct: numOrNull(historicalLimits["max_risk_pct"]),
+          maxTradesPerDay: numOrNull(historicalLimits["max_trades_per_day"]),
+          maxDailyLoss: numOrNull(historicalLimits["max_daily_loss"]),
+        }
+      : versionId ? { maxRiskPct: null, maxTradesPerDay: null, maxDailyLoss: null }
+      : {
+          maxRiskPct: numOrNull(acct.max_risk_pct),
+          maxTradesPerDay: numOrNull(acct.max_trades_per_day),
+          maxDailyLoss: numOrNull(acct.max_daily_loss),
+        };
+    const drafts = deriveBehaviorEvents(t, trades, checkinByTrade.get(t.id), applicableLimits);
     for (const d of drafts) {
       derivedRows.push({
         user_id: userId,
@@ -148,7 +158,9 @@ export async function runIntelligencePipeline(supabase: DB, userId: string, acco
     strategyNames: new Map((stratRows ?? []).map((s) => [s.id, s.name])),
   });
 
-  await supabase.from("insights").delete().eq("user_id", userId).eq("account_id", accountId);
+  const { data: priorInsightKeys, error: priorInsightError } = await supabase.from("insights")
+    .select("insight_key").eq("user_id", userId).eq("account_id", accountId);
+  if (priorInsightError) throw priorInsightError;
   const now = new Date();
   const windowStart = trades.length ? new Date(trades[0].entered_at) : now;
   const insightIdByKey = new Map<string, string>();
@@ -156,7 +168,7 @@ export async function runIntelligencePipeline(supabase: DB, userId: string, acco
   for (const chunk of chunks(insights, 100)) {
     const { data, error } = await supabase
       .from("insights")
-      .insert(
+      .upsert(
         chunk.map((i) => ({
           user_id: userId,
           account_id: accountId,
@@ -172,16 +184,35 @@ export async function runIntelligencePipeline(supabase: DB, userId: string, acco
           confidence: i.confidence,
           impact_estimate: i.impact_estimate,
           min_sample: i.min_sample,
+          p_value: i.p_value ?? null,
+          q_value: i.q_value ?? null,
+          ci_low: i.ci_low ?? null,
+          ci_high: i.ci_high ?? null,
+          tests_in_run: i.tests_in_run ?? 1,
           window_start: windowStart.toISOString().slice(0, 10),
           window_end: now.toISOString().slice(0, 10),
           detail: i.detail as never,
         })),
+        { onConflict: "user_id,account_id,insight_key" },
       )
       .select("id,insight_key");
     if (error) throw error;
     for (const row of data ?? []) insightIdByKey.set(row.insight_key, row.id);
   }
 
+  const currentInsightKeys = new Set(insights.map((i) => i.insight_key));
+  for (const chunk of chunks((priorInsightKeys ?? []).map((r) => r.insight_key).filter((k) => !currentInsightKeys.has(k)), 100)) {
+    const { error } = await supabase.from("insights").update({ status: "invalidated" })
+      .eq("user_id", userId).eq("account_id", accountId).in("insight_key", chunk);
+    if (error) throw error;
+  }
+
+  // Refresh evidence projection without changing the insight's stable ID.
+  for (const chunk of chunks([...insightIdByKey.values()], 100)) {
+    const { error } = await supabase.from("insight_evidence").delete()
+      .eq("user_id", userId).in("insight_id", chunk);
+    if (error) throw error;
+  }
   const evidenceRows = insights.flatMap((i) =>
     i.evidence.map((e) => ({
       insight_id: insightIdByKey.get(i.insight_key)!,
@@ -199,16 +230,19 @@ export async function runIntelligencePipeline(supabase: DB, userId: string, acco
 
   // ---------- 3. Root causes ----------
   const causes = buildRootCauses(insights);
-  await supabase.from("root_causes").delete().eq("user_id", userId).eq("account_id", accountId);
+  const { data: priorCauseKeys, error: priorCauseError } = await supabase.from("root_causes")
+    .select("cause_key").eq("user_id", userId).eq("account_id", accountId);
+  if (priorCauseError) throw priorCauseError;
   const causeIdByKey = new Map<string, string>();
   if (causes.length) {
     const { data, error } = await supabase
       .from("root_causes")
-      .insert(
+      .upsert(
         causes.map((c) => ({
           user_id: userId,
           account_id: accountId,
           cause_key: c.cause_key,
+          is_current: true,
           title: c.title,
           explanation: c.explanation,
           chain: c.chain as never,
@@ -216,10 +250,18 @@ export async function runIntelligencePipeline(supabase: DB, userId: string, acco
           confidence: c.confidence,
           impact_estimate: c.impact_estimate,
         })),
+        { onConflict: "user_id,account_id,cause_key" },
       )
       .select("id,cause_key");
     if (error) throw error;
     for (const row of data ?? []) causeIdByKey.set(row.cause_key, row.id);
+  }
+
+  const currentCauseKeys = new Set(causes.map((c) => c.cause_key));
+  for (const chunk of chunks((priorCauseKeys ?? []).map((r) => r.cause_key).filter((k) => !currentCauseKeys.has(k)), 100)) {
+    const { error } = await supabase.from("root_causes").update({ is_current: false })
+      .eq("user_id", userId).eq("account_id", accountId).in("cause_key", chunk);
+    if (error) throw error;
   }
 
   // ---------- 3b. Long-term memory: lifecycle diff + timeline ----------
@@ -306,15 +348,18 @@ export async function runIntelligencePipeline(supabase: DB, userId: string, acco
   }
   const recs = applyMetaWeights(baseRecs, outcomes);
 
-  await supabase.from("recommendations").delete().eq("user_id", userId).eq("account_id", accountId);
+  const { data: priorRecKeys, error: priorRecError } = await supabase.from("recommendations")
+    .select("recommendation_key").eq("user_id", userId).eq("account_id", accountId);
+  if (priorRecError) throw priorRecError;
   if (recs.length) {
-    const { error } = await supabase.from("recommendations").insert(
+    const { error } = await supabase.from("recommendations").upsert(
       recs.map((r) => {
         const before = prior.get(r.recommendation_key);
         return {
           user_id: userId,
           account_id: accountId,
           recommendation_key: r.recommendation_key,
+          is_current: true,
           root_cause_id: r.cause_key ? (causeIdByKey.get(r.cause_key) ?? null) : null,
           insight_id: r.insight_key ? (insightIdByKey.get(r.insight_key) ?? null) : null,
           title: r.title,
@@ -327,7 +372,14 @@ export async function runIntelligencePipeline(supabase: DB, userId: string, acco
           resolved_at: before?.resolved_at ?? null,
         };
       }),
+      { onConflict: "user_id,account_id,recommendation_key" },
     );
+    if (error) throw error;
+  }
+  const currentRecKeys = new Set(recs.map((r) => r.recommendation_key));
+  for (const chunk of chunks((priorRecKeys ?? []).map((r) => r.recommendation_key).filter((k) => !currentRecKeys.has(k)), 100)) {
+    const { error } = await supabase.from("recommendations").update({ is_current: false })
+      .eq("user_id", userId).eq("account_id", accountId).in("recommendation_key", chunk);
     if (error) throw error;
   }
 
@@ -431,8 +483,8 @@ export async function runIntelligencePipeline(supabase: DB, userId: string, acco
 export async function loadTruthContext(supabase: DB, userId: string, accountId: string) {
   const [{ data: insights }, { data: causes }, { data: recs }, { data: toms }, { data: memory }, { data: gEdges }, { data: outcomes }] = await Promise.all([
     supabase.from("insights").select("*").eq("user_id", userId).eq("account_id", accountId).eq("status", "validated").order("impact_estimate", { ascending: true }).limit(15),
-    supabase.from("root_causes").select("*").eq("user_id", userId).eq("account_id", accountId),
-    supabase.from("recommendations").select("*").eq("user_id", userId).eq("account_id", accountId).eq("status", "active").order("priority"),
+    supabase.from("root_causes").select("*").eq("user_id", userId).eq("account_id", accountId).eq("is_current", true),
+    supabase.from("recommendations").select("*").eq("user_id", userId).eq("account_id", accountId).eq("is_current", true).eq("status", "active").order("priority"),
     supabase.from("tom_versions").select("*").eq("user_id", userId).eq("is_active", true).limit(1),
     supabase.from("memory_entries").select("kind,title,body,occurred_at").eq("user_id", userId).eq("account_id", accountId).order("occurred_at", { ascending: false }).limit(12),
     supabase.from("graph_edges").select("source_key,target_key,relation,weight,sample_size,confidence,impact_estimate,detail").eq("user_id", userId).eq("account_id", accountId).order("impact_estimate", { ascending: true }).limit(10),
@@ -454,7 +506,11 @@ export async function loadTruthContext(supabase: DB, userId: string, accountId: 
     validated_insights: (insights ?? []).map((i) => ({
       claim: i.claim,
       sample_size: i.sample_size,
+      // Confidence is a compatibility evidence index; adjusted q controls validity.
       confidence: Number(i.confidence),
+      adjusted_q_value: i.q_value == null ? null : Number(i.q_value),
+      ci_low: i.ci_low == null ? null : Number(i.ci_low),
+      ci_high: i.ci_high == null ? null : Number(i.ci_high),
       impact_estimate: Number(i.impact_estimate ?? 0),
       category: i.category,
     })),

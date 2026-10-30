@@ -269,7 +269,7 @@ export const rootCausesQuery = (accountId?: string) =>
   queryOptions({
     queryKey: ["root_causes", accountId ?? "all"],
     queryFn: async () => {
-      let q = supabase.from("root_causes").select("*").order("impact_estimate", { ascending: true });
+      let q = supabase.from("root_causes").select("*").eq("is_current", true).order("impact_estimate", { ascending: true });
       if (accountId) q = q.eq("account_id", accountId);
       const { data, error } = await q;
       if (error) throw error;
@@ -281,7 +281,7 @@ export const recommendationsQuery = (accountId?: string) =>
   queryOptions({
     queryKey: ["recommendations", accountId ?? "all"],
     queryFn: async () => {
-      let q = supabase.from("recommendations").select("*").order("priority");
+      let q = supabase.from("recommendations").select("*").eq("is_current", true).order("priority");
       if (accountId) q = q.eq("account_id", accountId);
       const { data, error } = await q;
       if (error) throw error;
