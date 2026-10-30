@@ -95,7 +95,9 @@ export async function generateReview(supabase: DB, userId: string, period: Perio
 
   const prompt = `You are a neutral, analytical trading performance coach. You NEVER predict markets.
 
-You may ONLY reason from the material below. Do not infer new correlations, do not invent numbers,
+You may ONLY reason from the material below. The adjusted_q_value is a multiple-testing-corrected statistical screening quantity, NOT the probability a conclusion is true. Confidence fields are compatibility evidence indexes, not calibrated certainty.
+Treat root causes as hypotheses or associated patterns, never proven causes.
+Do not infer new correlations, do not invent numbers,
 and do not make any behavioural claim that is not present in VALIDATED_INSIGHTS. If a claim you want
 to make is absent, say the evidence is insufficient instead.
 
