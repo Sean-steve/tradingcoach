@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { planGoal, planNotice, remainingTradingDays, realizedSessionPnl, milestoneReached, todayInZone } from "../src/lib/goal-planning.ts";
+import { planGoal, planNotice, remainingTradingDays, realizedSessionPnl, milestoneReached, todayInZone, horizonDeadline } from "../src/lib/goal-planning.ts";
 import { rewardProgress, planningAllowance } from "../src/lib/reward-planning.ts";
 
 test("planning days include today and honor selected weekdays", () => {
@@ -103,4 +103,13 @@ test("conservative reward planning limits total allocation and never spends unve
     rewardPledged:0,rewardBudget:300,rewardCapPct:5,
   });
   assert.equal(reserve,0);
+});
+
+test("time horizons suggest correct editable deadlines, not mandatory activity", () => {
+  assert.equal(horizonDeadline("2026-10-31","daily"),"2026-10-31");
+  assert.equal(horizonDeadline("2026-10-31","weekly"),"2026-11-01");
+  assert.equal(horizonDeadline("2026-10-31","monthly"),"2026-10-31");
+  assert.equal(horizonDeadline("2026-10-31","quarterly"),"2026-12-31");
+  assert.equal(horizonDeadline("2026-10-31","annual"),"2026-12-31");
+  assert.equal(horizonDeadline("2026-10-31","custom"),null);
 });
