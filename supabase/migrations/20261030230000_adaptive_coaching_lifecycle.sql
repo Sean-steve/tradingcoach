@@ -69,11 +69,23 @@ BEGIN
 
  IF p_action IN ('accept','activate') THEN
   IF rec.status NOT IN ('active','accepted') THEN RAISE EXCEPTION 'Recommendation is no longer actionable'; END IF;
-  IF rec.insight_id IS NULL THEN RAISE EXCEPTION 'Recommendation lacks validated evidence'; END IF;
-  SELECT status INTO insight_state FROM public.insights
-   WHERE id=rec.insight_id AND user_id=uid AND account_id=rec.account_id;
+  -- A recommendation can be backed by an explicit insight OR by a root
+  -- cause that references one or more currently validated insights.
+  IF rec.insight_id IS NOT NULL THEN
+    SELECT status INTO insight_state FROM public.insights
+      WHERE id=rec.insight_id AND user_id=uid AND account_id=rec.account_id;
+  ELSIF rec.root_cause_id IS NOT NULL THEN
+    SELECT i.status INTO insight_state
+    FROM public.root_causes cause
+    JOIN public.insights i ON i.id = ANY(cause.insight_ids)
+    WHERE cause.id=rec.root_cause_id AND cause.user_id=uid
+      AND cause.account_id=rec.account_id AND cause.is_current=true
+      AND i.user_id=uid AND i.account_id=rec.account_id
+      AND i.status='validated'::public.insight_status
+    LIMIT 1;
+  END IF;
   IF insight_state IS DISTINCT FROM 'validated'::public.insight_status THEN
-   RAISE EXCEPTION 'Insight no longer validated';
+    RAISE EXCEPTION 'Recommendation no longer has validated evidence';
   END IF;
   next_state := 'accepted';
  ELSIF p_action='complete' THEN
