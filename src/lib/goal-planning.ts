@@ -98,3 +98,12 @@ export function planNotice(p: GoalPlan): string {
     default: return "No deadline set; measure process quality rather than forcing daily profits.";
   }
 }
+
+/** Explicit IANA timezone conversion for day-boundary planning; no implicit local clock. */
+export function todayInZone(timezone: string, now: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(now);
+  const get = (type: string) => parts.find(p=>p.type===type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
