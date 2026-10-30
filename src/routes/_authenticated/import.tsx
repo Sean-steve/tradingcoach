@@ -37,6 +37,7 @@ function ImportPage() {
   const [busy, setBusy] = useState(false);
   const [preset, setPreset] = useState<"generic" | "mt4" | "mt5" | "binary">("generic");
   const [fileName, setFileName] = useState("");
+  const [brokerUtcOffsetHours, setBrokerUtcOffsetHours] = useState("0");
   const [summary, setSummary] = useState("");
 
   const applyPreset = (p: "generic" | "mt4" | "mt5" | "binary") => {
@@ -162,6 +163,8 @@ function ImportPage() {
     try {
       const ready = await isPhase2Active();
       if (!ready) throw new Error("Safe, idempotent importing requires Phase 2 database activation. No records were written.");
+      const utcOffset = Number(brokerUtcOffsetHours);
+      if (!Number.isFinite(utcOffset) || utcOffset < -12 || utcOffset > 14) throw new Error("Invalid broker UTC offset");
       const { data: userData, error: authError } = await supabase.auth.getUser();
       if (authError || !userData.user) throw new Error("Sign in to import");
       const userId = userData.user.id;
@@ -171,14 +174,15 @@ function ImportPage() {
       for (const [i,row] of rows.entries()) {
         try {
           const val = (key: string): string => (mapping[key] ? String(row[mapping[key]] ?? "").trim() : "");
-          const enteredAt = parseDate(val("entered_at"));
+          const enteredAt = parseDate(val("entered_at"), utcOffset);
           if (!enteredAt) throw new Error("Invalid entry date");
-          const exitedAt = parseDate(val("exited_at"));
+          const exitedAt = parseDate(val("exited_at"), utcOffset);
           const dirRaw = (val("direction") || "long").toLowerCase();
           const direction: TradeInsert["direction"] = /^(sell|short|put)/.test(dirRaw) ? "short" : "long";
           const asset = val("asset").toUpperCase();
           if (!asset) throw new Error("Missing asset");
-          const fees = Number(val("fees") || 0);
+          const parsedFees = Number(val("fees") || 0);
+          const fees = preset === "mt4" || preset === "mt5" ? Math.abs(parsedFees) : parsedFees;
           if (!Number.isFinite(fees) || fees < 0) throw new Error("Invalid fees");
           const rawPnl = Number(val("pnl") || 0);
           if (!binary && !Number.isFinite(rawPnl)) throw new Error("Invalid P&L");
@@ -276,7 +280,7 @@ function ImportPage() {
         if (error) throw new Error("Import partially completed. Re-run same file safely. " + error.message);
         inserted += saved?.length ?? 0;
       }
-      setSummary("Import " + run.id + ": " + inserted + " inserted, " +
+      setSummary("Import " + run.id + " (UTC offset " + brokerUtcOffsetHours + "h): " + inserted + " inserted, " +
         (rows.length-inserted) + " already present / duplicated. No existing trades overwritten.");
       toast.success("Imported " + inserted + " new trades; " + (rows.length - inserted) + " duplicates skipped");
       // Stay on import page to display reconciliation outcome and audit run.
@@ -291,7 +295,7 @@ function ImportPage() {
     <div className="p-8 max-w-5xl mx-auto space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">CSV Import</h1>
-        <p className="text-sm text-muted-foreground mt-1">MT4 / MT5 / generic broker exports. We auto-map common columns; adjust as needed.</p>
+        <p className="text-sm text-muted-foreground mt-1">MT4, MT5, generic and binary-option CSV. Existing trades are never overwritten; map the source broker's time zone and verify whether Profit is gross of fees.</p>
       </div>
 
       <Card className="glow-card p-6 border-border/40 space-y-4">
@@ -304,6 +308,13 @@ function ImportPage() {
                 {accounts.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
               </SelectContent>
             </Select>
+          </div>
+          <div>
+            <Label>Broker timestamp UTC offset (hours)</Label>
+            <Input type="number" min="-12" max="14" step="0.5"
+              value={brokerUtcOffsetHours} onChange={e=>setBrokerUtcOffsetHours(e.target.value)}
+              className="mt-1" />
+            <p className="text-[11px] text-muted-foreground mt-1">Applied only to timestamps WITHOUT an explicit Z or ±HH:MM offset. Example: Nairobi = +3. Broker server time may differ.</p>
           </div>
           <div>
             <Label>File</Label>
@@ -357,10 +368,17 @@ function ImportPage() {
   );
 }
 
-function parseDate(s: string): Date | null {
+function parseDate(s: string, utcOffsetHours = 0): Date | null {
   if (!s) return null;
-  const d = new Date(s.replace(" ", "T"));
-  return isNaN(+d) ? null : d;
+  const normalized = s.trim()
+    .replace(/^(\d{4})\.(\d{2})\.(\d{2})/, "$1-$2-$3")
+    .replace(" ", "T");
+  const explicitZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(normalized);
+  const parsed = Date.parse(explicitZone ? normalized : normalized + "Z");
+  if (!Number.isFinite(parsed)) return null;
+  const ts = explicitZone ? parsed : parsed - utcOffsetHours * 3600000;
+  const result = new Date(ts);
+  return Number.isFinite(+result) ? result : null;
 }
 function numOrNull(s: string) {
   if (!s) return null;
