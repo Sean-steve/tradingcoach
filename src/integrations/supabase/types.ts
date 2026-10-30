@@ -2187,6 +2187,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      tradeos_account_reconciliation: {
+        Args: Record<string, never>
+        Returns: Array<{account_id: string; currency: string; booked: number; expected: number; variance: number}>
+      }
       tradeos_phase2_ready: {
         Args: Record<string, never>
         Returns: boolean
