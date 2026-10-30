@@ -10,6 +10,7 @@ import { isPhase2Active } from "@/lib/phase2-readiness";
 import { calculateBinarySettlement, validateBinaryExpiry, type BinarySettlement } from "@/lib/binary-options";
 import { importFingerprint, distinctImportKeys } from "@/lib/import-integrity";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
