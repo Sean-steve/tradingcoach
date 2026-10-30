@@ -1,4 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useActiveAccountId } from "@/lib/active-account";
+import { calculateBinaryPerformance } from "@/lib/binary-options";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense, useMemo } from "react";
 import { accountsQuery, tradesQuery } from "@/lib/queries";
@@ -20,8 +22,12 @@ export const Route = createFileRoute("/_authenticated/analytics")({
 
 function Analytics() {
   const { data: accounts } = useSuspenseQuery(accountsQuery());
-  const { data: trades } = useSuspenseQuery(tradesQuery(accounts[0]?.id));
-  const startBal = Number(accounts[0]?.starting_balance ?? 10000);
+  const { activeId } = useActiveAccountId();
+  const account = accounts.find(a=>a.id===activeId) ?? accounts[0];
+  const { data: trades } = useSuspenseQuery(tradesQuery(account?.id));
+  const startBal = Number(account?.starting_balance ?? 10000);
+  const currency = account?.currency ?? "USD";
+  const binary = calculateBinaryPerformance(trades);
   const m = computeMetrics(trades as unknown as TradeLike[], startBal);
 
   const equity = m.equityCurve.map((e, i) => ({ i, balance: Number(e.balance.toFixed(2)) }));
@@ -53,16 +59,31 @@ function Analytics() {
 
   return (
     <div className="p-8 max-w-[1600px] mx-auto space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight">Advanced Analytics</h1>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Advanced Analytics</h1>
+        <p className="text-xs text-muted-foreground mt-1">{account?.name ?? "All accounts"} · {currency}. Periods use settlement/exit times in UTC; payout analysis includes only binary contracts.</p>
+      </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
         <StatCard label="Trades" value={m.tradesCount} />
-        <StatCard label="Net P&L" value={formatMoney(m.netPnl, "USD", { sign: true })} tone={pnlTone(m.netPnl)} />
+        <StatCard label="Net P&L" value={formatMoney(m.netPnl, currency, { sign: true })} tone={pnlTone(m.netPnl)} />
         <StatCard label="Win Rate" value={formatPct(m.winRate)} />
         <StatCard label="Profit Factor" value={Number.isFinite(m.profitFactor) ? formatNum(m.profitFactor) : "∞"} />
-        <StatCard label="Expectancy" value={formatMoney(m.expectancy, "USD", { sign: true })} tone={pnlTone(m.expectancy)} />
+        <StatCard label="Expectancy" value={formatMoney(m.expectancy, currency, { sign: true })} tone={pnlTone(m.expectancy)} />
         <StatCard label="Max DD" value={formatPct(m.maxDrawdownPct)} tone="warn" />
       </div>
+
+      {binary.total > 0 && <Card className="glow-card border-border/40 p-5 space-y-3">
+        <h3 className="font-semibold">Binary-options economics</h3>
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+          <StatCard label="Settled contracts" value={binary.total} />
+          <StatCard label="Decision win rate" value={formatPct(binary.winRatePercent)} />
+          <StatCard label="Average net payout" value={binary.avgPayoutPercent == null ? "—" : formatPct(binary.avgPayoutPercent)} />
+          <StatCard label="Approx break-even win rate" value={binary.approximateBreakevenWinRatePercent == null || !Number.isFinite(binary.approximateBreakevenWinRatePercent) ? "—" : formatPct(binary.approximateBreakevenWinRatePercent)} />
+          <StatCard label="Net expectancy / contract" value={formatMoney(binary.sampleNetExpectancy,currency,{sign:true})} tone={pnlTone(binary.sampleNetExpectancy)} />
+        </div>
+        <p className="text-xs text-muted-foreground">{binary.refunds} refunded PUSH/VOID contracts excluded from decided win rate. Break-even threshold approximates the weighted payout, fees and historical loss rebates; it is descriptive, not a predicted edge.</p>
+      </Card>}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card className="glow-card p-6 border-border/40">
@@ -79,7 +100,7 @@ function Analytics() {
                 <CartesianGrid strokeDasharray="3 3" stroke="oklch(1 0 0 / 5%)" />
                 <XAxis dataKey="i" hide />
                 <YAxis tick={{ fontSize: 11, fill: "oklch(0.68 0.03 250)" }} />
-                <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatMoney(v, "USD")} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatMoney(v, currency)} />
                 <Area type="monotone" dataKey="balance" stroke="oklch(0.82 0.17 165)" strokeWidth={2} fill="url(#ec)" />
               </AreaChart>
             </ResponsiveContainer>
@@ -115,7 +136,7 @@ function Analytics() {
                 <CartesianGrid strokeDasharray="3 3" stroke="oklch(1 0 0 / 5%)" />
                 <XAxis dataKey="month" tick={{ fontSize: 11, fill: "oklch(0.68 0.03 250)" }} />
                 <YAxis tick={{ fontSize: 11, fill: "oklch(0.68 0.03 250)" }} />
-                <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatMoney(v, "USD", { sign: true })} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatMoney(v, currency, { sign: true })} />
                 <Bar dataKey="pnl">
                   {byMonth.map((d, i) => <Cell key={i} fill={d.pnl >= 0 ? "oklch(0.82 0.17 165)" : "oklch(0.65 0.24 25)"} />)}
                 </Bar>
@@ -132,7 +153,7 @@ function Analytics() {
                 <CartesianGrid strokeDasharray="3 3" stroke="oklch(1 0 0 / 5%)" />
                 <XAxis dataKey="day" tick={{ fontSize: 11, fill: "oklch(0.68 0.03 250)" }} />
                 <YAxis tick={{ fontSize: 11, fill: "oklch(0.68 0.03 250)" }} />
-                <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatMoney(v, "USD", { sign: true })} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatMoney(v, currency, { sign: true })} />
                 <Bar dataKey="pnl">
                   {byDow.map((d, i) => <Cell key={i} fill={d.pnl >= 0 ? "oklch(0.82 0.17 165)" : "oklch(0.65 0.24 25)"} />)}
                 </Bar>
@@ -143,13 +164,13 @@ function Analytics() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <BreakdownTable title="Performance by session" rows={bySession} />
-        <BreakdownTable title="Top assets" rows={byAsset} />
+        <BreakdownTable title="Performance by session" rows={bySession} currency={currency} />
+        <BreakdownTable title="Top assets" rows={byAsset} currency={currency} />
       </div>
 
       <WinRateAndRolling trades={trades as unknown as TradeLike[]} />
-      <HeatmapCalendar trades={trades as unknown as TradeLike[]} />
-      <PeriodTables trades={trades as unknown as TradeLike[]} />
+      <HeatmapCalendar trades={trades as unknown as TradeLike[]} currency={currency} />
+      <PeriodTables trades={trades as unknown as TradeLike[]} currency={currency} />
     </div>
   );
 }
@@ -161,15 +182,16 @@ function aggregate(trades: Array<{ pnl: number | string; result: string }>, key:
   for (const t of trades) {
     const k = key(t);
     const cur = map.get(k) ?? { key: k, count: 0, wins: 0, pnl: 0 };
+    if (t.result === "open") continue;
     cur.count++;
-    if (Number(t.pnl) > 0) cur.wins++;
+    if (t.result === "win") cur.wins++;
     cur.pnl += Number(t.pnl);
     map.set(k, cur);
   }
   return [...map.values()].sort((a, b) => b.pnl - a.pnl);
 }
 
-function BreakdownTable({ title, rows }: { title: string; rows: { key: string; count: number; wins: number; pnl: number }[] }) {
+function BreakdownTable({ title, rows, currency }: { title: string; rows: { key: string; count: number; wins: number; pnl: number }[]; currency: string }) {
   return (
     <Card className="glow-card p-6 border-border/40">
       <h3 className="font-semibold mb-4">{title}</h3>
@@ -184,7 +206,7 @@ function BreakdownTable({ title, rows }: { title: string; rows: { key: string; c
               <td className="py-2">{r.key}</td>
               <td className="text-right number-mono text-muted-foreground">{r.count}</td>
               <td className="text-right number-mono">{formatPct((r.wins / r.count) * 100, { digits: 0 })}</td>
-              <td className={`text-right number-mono text-${pnlTone(r.pnl)}`}>{formatMoney(r.pnl, "USD", { sign: true })}</td>
+              <td className={`text-right number-mono text-${pnlTone(r.pnl)}`}>{formatMoney(r.pnl, currency, { sign: true })}</td>
             </tr>
           ))}
         </tbody>
@@ -237,7 +259,7 @@ function WinRateAndRolling({ trades }: { trades: TradeLike[] }) {
   );
 }
 
-function HeatmapCalendar({ trades }: { trades: TradeLike[] }) {
+function HeatmapCalendar({ trades, currency }: { trades: TradeLike[]; currency: string }) {
   const rows = heatmapData(trades);
   const map = new Map(rows.map((r) => [r.date, r]));
   const today = new Date();
@@ -264,7 +286,7 @@ function HeatmapCalendar({ trades }: { trades: TradeLike[] }) {
           return (
             <div
               key={d.date}
-              title={`${d.date}: ${d.count} trades · ${formatMoney(d.pnl, "USD", { sign: true })}`}
+              title={`${d.date}: ${d.count} trades · ${formatMoney(d.pnl, currency, { sign: true })}`}
               className="aspect-square rounded-sm border border-border/30"
               style={{ background: bg }}
             />
@@ -282,7 +304,7 @@ function HeatmapCalendar({ trades }: { trades: TradeLike[] }) {
   );
 }
 
-function PeriodTables({ trades }: { trades: TradeLike[] }) {
+function PeriodTables({ trades, currency }: { trades: TradeLike[]; currency: string }) {
   const [period, setPeriod] = useState<"daily" | "weekly" | "monthly" | "quarterly" | "yearly" | "lifetime">("monthly");
   const bucketMap = {
     daily: bucketDay,
@@ -334,8 +356,8 @@ function PeriodTables({ trades }: { trades: TradeLike[] }) {
                 <td className="text-right number-mono text-loss">{r.losses}</td>
                 <td className="text-right number-mono">{formatPct(r.winRate, { digits: 0 })}</td>
                 <td className="text-right number-mono">{Number.isFinite(r.profitFactor) ? formatNum(r.profitFactor) : "∞"}</td>
-                <td className={`text-right number-mono text-${pnlTone(r.expectancy)}`}>{formatMoney(r.expectancy, "USD", { sign: true })}</td>
-                <td className={`text-right number-mono text-${pnlTone(r.netPnl)}`}>{formatMoney(r.netPnl, "USD", { sign: true })}</td>
+                <td className={`text-right number-mono text-${pnlTone(r.expectancy)}`}>{formatMoney(r.expectancy, currency, { sign: true })}</td>
+                <td className={`text-right number-mono text-${pnlTone(r.netPnl)}`}>{formatMoney(r.netPnl, currency, { sign: true })}</td>
               </tr>
             ))}
           </tbody>
