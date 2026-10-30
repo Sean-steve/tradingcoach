@@ -28,6 +28,7 @@ function ReportsPage() {
   const active = accounts.find((a) => a.id === activeId) ?? accounts[0];
   const { data: trades } = useSuspenseQuery(tradesQuery(active?.id));
   const { data: reviews } = useSuspenseQuery(coachReviewsQuery());
+  const currency = active?.currency ?? "USD";
 
   const today = new Date().toISOString().slice(0, 10);
   const monthStart = new Date();
@@ -63,7 +64,7 @@ function ReportsPage() {
       doc.setFontSize(20); doc.setTextColor(0, 200, 150);
       doc.text("TRADE OS — Performance Report", 40, 50);
       doc.setFontSize(10); doc.setTextColor(120);
-      doc.text(`${active?.name ?? "Account"} · ${from} → ${to}`, 40, 68);
+      doc.text(`${active?.name ?? "Account"} · ${currency} · ${from} → ${to}`, 40, 68);
 
       autoTable(doc, {
         startY: 90, theme: "grid",
@@ -71,11 +72,11 @@ function ReportsPage() {
         body: [
           ["Trades", String(m.tradesCount)],
           ["Win rate", formatPct(m.winRate)],
-          ["Net P&L", formatMoney(m.netPnl, "USD", { sign: true })],
+          ["Net P&L", formatMoney(m.netPnl, currency, { sign: true })],
           ["Profit factor", Number.isFinite(m.profitFactor) ? formatNum(m.profitFactor) : "∞"],
-          ["Expectancy", formatMoney(m.expectancy, "USD", { sign: true })],
+          ["Expectancy", formatMoney(m.expectancy, currency, { sign: true })],
           ["Avg R:R", formatNum(m.avgRR)],
-          ["Max drawdown", `${formatPct(m.maxDrawdownPct)} (${formatMoney(m.maxDrawdown)})`],
+          ["Max drawdown", `${formatPct(m.maxDrawdownPct)} (${formatMoney(m.maxDrawdown,currency)})`],
           ["Longest win streak", String(m.longestWinStreak)],
           ["Longest loss streak", String(m.longestLossStreak)],
           ["Rule compliance", formatPct(m.ruleCompliancePct)],
@@ -97,7 +98,7 @@ function ReportsPage() {
           t.asset,
           t.direction,
           t.realized_rr ? formatNum(Number(t.realized_rr)) : "—",
-          formatMoney(Number(t.pnl), "USD", { sign: true }),
+          formatMoney(Number(t.pnl), currency, { sign: true }),
           t.result,
         ]),
         headStyles: { fillColor: [10, 15, 30], textColor: 255 },
@@ -210,10 +211,10 @@ function ReportsPage() {
         <div className="flex items-center gap-2 mb-4"><Download className="h-4 w-4 text-primary" /><h2 className="font-semibold">Preview — what will be exported</h2></div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
           <Stat label="Trades" value={String(m.tradesCount)} />
-          <Stat label="Net P&L" value={formatMoney(m.netPnl, "USD", { sign: true })} />
+          <Stat label="Net P&L" value={formatMoney(m.netPnl, currency, { sign: true })} />
           <Stat label="Win rate" value={formatPct(m.winRate)} />
           <Stat label="Profit factor" value={Number.isFinite(m.profitFactor) ? formatNum(m.profitFactor) : "∞"} />
-          <Stat label="Expectancy" value={formatMoney(m.expectancy, "USD", { sign: true })} />
+          <Stat label="Expectancy" value={formatMoney(m.expectancy, currency, { sign: true })} />
           <Stat label="Avg R:R" value={formatNum(m.avgRR)} />
           <Stat label="Max DD" value={formatPct(m.maxDrawdownPct)} />
           <Stat label="Score" value={`${score.total} / 100`} />
