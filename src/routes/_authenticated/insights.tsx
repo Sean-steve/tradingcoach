@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
@@ -39,6 +39,18 @@ function Insights() {
   const { data: causes } = useSuspenseQuery(rootCausesQuery(activeId ?? undefined));
   const { data: recs } = useSuspenseQuery(recommendationsQuery(activeId ?? undefined));
   const { data: events } = useSuspenseQuery(behaviorEventsQuery(activeId ?? undefined));
+  const { data: actions = [] } = useQuery({
+    queryKey: ["recommendation_actions", activeId ?? "all"],
+    queryFn: async () => {
+      if (!(await isPhase3Active())) return [];
+      let q = supabase.from("recommendation_actions").select("*")
+        .order("created_at", { ascending: false }).limit(20);
+      if (activeId) q = q.eq("account_id", activeId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
 
   const run = useServerFn(runIntelligence);
   const mutation = useMutation({
@@ -83,6 +95,7 @@ function Insights() {
       }
       toast.success(`Recommendation ${status}`);
       qc.invalidateQueries({ queryKey: ["recommendations"] });
+      qc.invalidateQueries({ queryKey: ["recommendation_actions"] });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Recommendation action failed");
     }
@@ -153,6 +166,24 @@ function Insights() {
                   <Button size="sm" variant="outline" onClick={() => setStatus(rec.id, "completed")}>Complete</Button>
                   <Button size="sm" variant="ghost" onClick={() => setStatus(rec.id, "dismissed")}>Dismiss</Button>
                 </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {actions.length > 0 && (
+        <Card className="glow-card p-6 border-border/40">
+          <h2 className="font-semibold mb-2">Coaching Action History</h2>
+          <p className="text-xs text-muted-foreground mb-3">Recorded recommendation decisions, including activation and explicit completion.</p>
+          <div className="space-y-2">
+            {actions.map(action => (
+              <div key={action.id} className="border-b border-border/40 pb-2 text-sm flex gap-3 justify-between">
+                <div><span className="font-medium capitalize">{action.action}</span>
+                  <span className="text-muted-foreground"> · {action.previous_status} → {action.new_status}</span>
+                  {action.note && <p className="text-xs text-muted-foreground">{action.note}</p>}
+                </div>
+                <time className="text-xs text-muted-foreground shrink-0">{new Date(action.created_at).toLocaleString()}</time>
               </div>
             ))}
           </div>
