@@ -161,7 +161,9 @@ BEGIN
       VALUES (a,u)
     ON CONFLICT (account_id) DO UPDATE SET
       revision = public.intelligence_jobs.revision + 1,
-      status = 'pending', next_attempt_at = now(), updated_at = now();
+      status = CASE WHEN public.intelligence_jobs.status = 'running' THEN 'running' ELSE 'pending' END,
+      attempts = CASE WHEN public.intelligence_jobs.status = 'running' THEN public.intelligence_jobs.attempts ELSE 0 END,
+      next_attempt_at = now(), updated_at = now();
   END LOOP;
   RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
 END $$;
@@ -204,6 +206,7 @@ BEGIN
     next_attempt_at = CASE WHEN p_success OR j.revision > p_revision THEN now()
                            ELSE now() + make_interval(mins => LEAST(60, (2 ^ LEAST(j.attempts,6))::integer)) END,
     locked_at = NULL,
+    attempts = CASE WHEN p_success OR j.revision > p_revision THEN 0 ELSE j.attempts END,
     last_error = CASE WHEN p_success THEN NULL ELSE left(coalesce(p_error,'Pipeline failed'),500) END,
     updated_at = now()
   WHERE j.account_id = p_account AND j.claimed_revision = p_revision;
