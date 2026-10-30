@@ -2072,6 +2072,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      consume_ai_quota: {
+        Args: { p_function: string }
+        Returns: boolean
+      }
+      claim_intelligence_jobs: {
+        Args: { p_limit?: number }
+        Returns: Array<{
+          account_id: string
+          user_id: string
+          revision: number
+          claimed_revision: number | null
+          attempts: number
+        }>
+      }
+      finish_intelligence_job: {
+        Args: { p_account: string; p_revision: number; p_success: boolean; p_error?: string | null }
+        Returns: undefined
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
