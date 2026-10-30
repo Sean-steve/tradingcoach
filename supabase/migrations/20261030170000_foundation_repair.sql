@@ -269,3 +269,11 @@ CREATE INDEX IF NOT EXISTS recommendations_current ON public.recommendations(use
 
 -- One active manual per trader. Historical versions remain unchanged.
 CREATE UNIQUE INDEX IF NOT EXISTS tom_one_active_per_user ON public.tom_versions(user_id) WHERE is_active;
+
+-- Used by older client builds during rolling deployments: a read-only
+-- capability probe. Absent on pre-migration environments (PGRST202).
+CREATE OR REPLACE FUNCTION public.tradeos_foundation_ready()
+RETURNS boolean LANGUAGE sql STABLE SECURITY INVOKER SET search_path = ''
+AS $$ SELECT true; $$;
+REVOKE ALL ON FUNCTION public.tradeos_foundation_ready() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.tradeos_foundation_ready() TO authenticated;
