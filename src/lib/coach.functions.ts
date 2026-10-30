@@ -11,6 +11,11 @@ export const generateCoachReview = createServerFn({ method: "POST" })
     return { period: p, accountId: raw.accountId };
   })
   .handler(async ({ data, context }) => {
+    const { data: allowed, error: quotaError } = await context.supabase.rpc("consume_ai_quota", {
+      p_function: "generateCoachReview",
+    });
+    if (quotaError) throw new Error("Unable to verify request quota");
+    if (!allowed) throw new Error("Hourly AI request limit reached; try again later.");
     const { generateReview } = await import("@/lib/coach.server");
     return generateReview(context.supabase, context.userId, data.period, data.accountId);
   });
