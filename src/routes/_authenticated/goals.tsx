@@ -3,6 +3,7 @@ import { Suspense, useState } from "react";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { accountsQuery, goalsQuery, tradesQuery } from "@/lib/queries";
+import { useActiveAccountId } from "@/lib/active-account";
 import { computeMetrics, performanceScore, type TradeLike } from "@/lib/metrics";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,7 +25,7 @@ export const Route = createFileRoute("/_authenticated/goals")({
 });
 
 const METRICS = [
-  { value: "pnl", label: "Net P&L ($)" },
+  { value: "pnl", label: "Net P&L (account currency)" },
   { value: "win_rate", label: "Win rate (%)" },
   { value: "profit_factor", label: "Profit factor" },
   { value: "discipline_score", label: "Discipline score" },
@@ -55,7 +56,8 @@ function GoalsPage() {
   const qc = useQueryClient();
   const { data: goals } = useSuspenseQuery(goalsQuery());
   const { data: accounts } = useSuspenseQuery(accountsQuery());
-  const active = accounts[0];
+  const { activeId } = useActiveAccountId();
+  const active = accounts.find(a => a.id === activeId) ?? accounts[0];
   const { data: trades } = useSuspenseQuery(tradesQuery(active?.id));
   const startBal = Number(active?.starting_balance ?? 10000);
 
@@ -91,7 +93,7 @@ function GoalsPage() {
     qc.invalidateQueries({ queryKey: ["goals"] });
   };
 
-  const active_goals = goals.filter((g) => g.status !== "archived");
+  const active_goals = goals.filter(g => g.status !== "archived" && (g.account_id === active?.id || g.account_id === null));
 
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-6">
@@ -103,7 +105,7 @@ function GoalsPage() {
       <Card className="glow-card p-6 border-border/40 space-y-4">
         <h2 className="font-semibold">New goal</h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          <div className="md:col-span-2"><Label>Title</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Hit $2k P&L this month" className="mt-1" /></div>
+          <div className="md:col-span-2"><Label>Title</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Improve monthly net P&L while respecting risk limits" className="mt-1" /></div>
           <div><Label>Metric</Label>
             <Select value={metric} onValueChange={(v) => setMetric(v as MetricKey)}>
               <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
@@ -134,7 +136,7 @@ function GoalsPage() {
           const pct = Math.max(0, Math.min(100, (gain / denom) * 100));
           const achieved = inverse ? current <= tgt : current >= tgt;
           const fmt = (v: number) =>
-            g.metric === "pnl" ? formatMoney(v) :
+            g.metric === "pnl" ? formatMoney(v, active?.currency ?? "USD") :
             g.metric === "win_rate" || g.metric === "max_drawdown_pct" ? formatPct(v) :
             v.toFixed(g.metric === "profit_factor" ? 2 : 0);
 
@@ -145,6 +147,7 @@ function GoalsPage() {
                   <div className="flex items-center gap-2">
                     <h3 className="font-semibold">{g.title}</h3>
                     {achieved && <Badge className="bg-primary/20 text-primary border-primary/40">Achieved</Badge>}
+                    {g.account_id === null && <Badge variant="outline">Legacy unscoped goal — active account figures</Badge>}
                     {g.deadline && <Badge variant="outline" className="text-xs">by {g.deadline}</Badge>}
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">
