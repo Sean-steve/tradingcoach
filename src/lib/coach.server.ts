@@ -10,31 +10,54 @@ import { loadTruthContext } from "@/lib/intelligence.server";
 type DB = SupabaseClient<Database>;
 export type Period = "daily" | "weekly" | "monthly";
 
-const MODEL = "google/gemini-3-flash-preview";
+const MODEL = process.env["AI_MODEL"]?.trim() || "not-configured";
 
+export function aiProviderConfigured(): boolean {
+  return Boolean(process.env["AI_API_BASE_URL"]?.trim() && process.env["AI_MODEL"]?.trim());
+}
+
+/**
+ * Provider-independent OpenAI-compatible endpoint.
+ * For offline development, use Ollama: AI_API_BASE_URL=http://127.0.0.1:11434/v1.
+ * Requests are SERVER ONLY. Never send trade data to a provider without
+ * separately configuring and consenting to that provider.
+ */
 export async function callGateway(system: string, user: string, json: boolean): Promise<string> {
-  const key = process.env["LOVABLE_API_KEY"];
-  if (!key) throw new Error("Missing LOVABLE_API_KEY");
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const base = process.env["AI_API_BASE_URL"]?.trim();
+  if (!base || !aiProviderConfigured()) {
+    throw new Error("AI provider not configured. Offline deterministic coach remains available.");
+  }
+  let endpoint: URL;
+  try { endpoint = new URL(base.replace(/\\/$/, "") + "/chat/completions"); }
+  catch { throw new Error("Invalid AI_API_BASE_URL"); }
+  if (!["https:", "http:"].includes(endpoint.protocol)) throw new Error("Unsupported AI provider URL");
+  // Never permit plaintext remote endpoints for sensitive trading and behavioral data.
+  if (endpoint.protocol === "http:" && !["localhost","127.0.0.1","::1"].includes(endpoint.hostname)) {
+    throw new Error("AI provider must use HTTPS unless it is on localhost");
+  }
+  const timeout = Number(process.env["AI_TIMEOUT_MS"] || 30000);
+  const apiKey = process.env["AI_API_KEY"]?.trim();
+  const res = await fetch(endpoint, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "Lovable-API-Key": key },
+    headers: {
+      "Content-Type": "application/json",
+      ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+    },
     body: JSON.stringify({
-      model: MODEL,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
+      model: aiProviderConfigured() ? MODEL : "offline-deterministic",
+      messages: [{ role: "system", content: system }, { role: "user", content: user }],
       stream: false,
+      ...(json ? { response_format: { type: "json_object" } } : {}),
     }),
+    signal: AbortSignal.timeout(Number.isFinite(timeout) ? Math.max(1000,Math.min(120000,timeout)) : 30000),
   });
   if (!res.ok) {
-    const text = await res.text();
-    if (res.status === 429) throw new Error("Rate limit hit. Try again in a minute.");
-    if (res.status === 402) throw new Error("AI credits exhausted. Add credits in workspace settings.");
-    throw new Error(`AI gateway ${res.status}: ${text}`);
+    if (res.status === 429) throw new Error("AI provider rate limit reached");
+    throw new Error(`AI provider returned HTTP ${res.status}`);
   }
-  const body = await res.json();
-  const raw = String(body.choices?.[0]?.message?.content ?? "");
+  const data = await res.json() as { choices?: Array<{ message?: {content?: string} }> };
+  const raw = String(data.choices?.[0]?.message?.content ?? "");
+  if (!raw.trim()) throw new Error("AI provider returned an empty completion");
   return json ? stripFence(raw) : raw.trim();
 }
 
@@ -126,12 +149,20 @@ Rules:
 - If trades=0, say so. Never fabricate data.
 - No emojis, no exclamation marks.`;
 
-  const raw = await callGateway("You are an analytical, evidence-gated trading performance coach. Output valid JSON only.", prompt, true);
   let parsed: { summary: string; findings: string[]; recommendations: string[] };
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    parsed = { summary: raw, findings: [], recommendations: [] };
+  if (!aiProviderConfigured()) {
+    parsed = {
+      summary: `Offline review: ${summaryStats.trades} recorded trades, net P&L ${summaryStats.net_pnl} and ${summaryStats.rule_compliance_pct}% rule compliance. These are descriptive records, not profit forecasts.`,
+      findings: [`Recorded trade count: ${summaryStats.trades}; evidence-validated insight count: ${truth.validated_insights.length}.`],
+      recommendations: ["Review the applicable Trading Operating Manual and complete the next trade checklist."],
+    };
+  } else {
+    const raw = await callGateway("You are an analytical, evidence-gated trading performance coach. Output valid JSON only.", prompt, true);
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      parsed = { summary: "AI response could not be parsed into validated findings.", findings: [], recommendations: [] };
+    }
   }
 
   const { data: insertRow, error } = await supabase
@@ -184,6 +215,8 @@ TOP_RECOMMENDATION: ${JSON.stringify(truth.open_recommendations[0] ?? null)}
 
 If trades=0, tell them to log their first trade. Return plain text only.`;
 
-  const advice = await callGateway("You are an analytical trading performance coach. Output plain text only.", prompt, false);
+  const advice = !aiProviderConfigured()
+    ? `Offline coaching: ${m.tradesCount} recorded trades in the last seven days and ${truth.validated_insights.length} validated insights. Focus on documented plan adherence and reviewing completed trades; no market predictions.`
+    : await callGateway("You are an analytical trading performance coach. Output plain text only.", prompt, false);
   return { advice, evidence_count: truth.validated_insights.length };
 }
