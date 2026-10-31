@@ -69,3 +69,24 @@ Nitro uses the Node server preset. Background intelligence processing is protect
 All original migrations and the Phase 1–4 repairs are preserved in `supabase/migrations/`. They are applied **in chronological order to a fresh local instance**, not copied into the previously inaccessible Lovable database. The correct remote database must be linked and migrated later through a separate backup-and-reconciliation process.
 
 See `docs/development/PHASES_A_B_LOCAL_INDEPENDENCE.md` for security, CI certification and known limitations.
+
+## Phase E — automation and production packaging
+
+The independent app has a protected 15-minute intelligence worker, DB liveness/readiness checks,
+bounded batch processing and isolated production-container packaging. These changes do **not**
+authorize use of a development Supabase stack as production infrastructure.
+
+- **App health:** `GET /api/health`
+- **Database readiness:** `GET /api/ready`
+- **Protected queue status:** `GET /api/internal/intelligence` with a 32+ character Bearer secret.
+- **Protected queue execution:** `POST /api/internal/intelligence` with the same token.
+- **Preflight:** `bun run production:check` (requires approved production env values).
+- **Release image:** `Dockerfile`; Compose and TLS sample under `deploy/`.
+- **Backups:** `bun run ops:backup`; restore drills must use disposable DBs.
+- **Local full certification:** `bun run local:certify`, now including real queued worker execution.
+
+Read [the Phase E runbook](docs/development/PHASE_E_AUTOMATION_PRODUCTION_READINESS.md)
+before configuring a server, linking any remote database or enabling GitHub Actions secrets.
+**Remaining production blockers:** account currency/cash reconciliation (#8), React console
+warning root cause (#9), remote security/staging, independent backups and restore proof.
+
