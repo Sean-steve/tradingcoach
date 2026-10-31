@@ -9,9 +9,12 @@ export const Route=createFileRoute("/api/ready")({
     try {
       const target = new URL(process.env["SUPABASE_URL"]!);
       const project = target.hostname.match(/^([a-z0-9]{20})\.supabase\.co$/)?.[1] ?? null;
-      const expected = process.env["TRADE_OS_STAGING_PROJECT_REF"] ||
-        process.env["TRADE_OS_PRODUCTION_PROJECT_REF"] || null;
-      if (expected && expected !== project)
+      const deployEnv = process.env["TRADE_OS_DEPLOYMENT_ENV"];
+      const expected = deployEnv === "staging"
+        ? process.env["TRADE_OS_STAGING_PROJECT_REF"]
+        : deployEnv === "production" ? process.env["TRADE_OS_PRODUCTION_PROJECT_REF"] : null;
+      if ((deployEnv === "staging" || deployEnv === "production") &&
+          (!expected || expected !== project))
         return Response.json({status:"not_ready",database:"target_mismatch"},{status:503,headers});
       const { supabaseAdmin }=await import("@/integrations/supabase/client.server");
       // Mere connectivity is not release readiness. Verify that the approved
