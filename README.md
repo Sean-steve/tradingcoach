@@ -1,5 +1,7 @@
 # TRADE OS — Independent Local Development
 
+**Canonical branch: `main`.** Develop on short-lived feature branches; changes become authoritative only when merged to `main` with full CI gates. The project is independent of Lovable. See [Phase D consolidation](docs/development/PHASE_D_REPOSITORY_CONSOLIDATION.md) for merge history, local certification and known financial/React exceptions.
+
 TRADE OS is a discipline-first trading journal and performance intelligence app. It is built with **React 19, TanStack Start, TypeScript, Supabase (PostgreSQL/Auth/Storage), and Nitro**, without depending on Lovable Cloud.
 
 The previous Lovable-hosted database is **not** required for development. The tracked `supabase/config.toml` uses the isolated identifier `trade-os-local`. Never run `supabase link` or `supabase db push` against a project without a reviewed backup and explicit target validation.
