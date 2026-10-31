@@ -36,8 +36,14 @@ const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
 const context=await browser.newContext({viewport:{width:1440,height:900},baseURL:root});
 const page=await context.newPage();
 const pageErrors=[];
+const networkErrors=[];
 let stepNumber=0;
 page.on("pageerror",err=>pageErrors.push(err.message));
+page.on("console",msg=>{if(msg.type()==="error")pageErrors.push(msg.text().slice(0,200));});
+page.on("response",res=>{
+ const path=new URL(res.url()).pathname;
+ if(path.includes("/auth/v1/")&&res.status()>=400)networkErrors.push({path,status:res.status()});
+});
 const pause=async ms=>new Promise(ok=>setTimeout(ok,ms));
 async function until(predicate,name,attempts=30){
  for(let i=0;i<attempts;i++){if(await predicate())return;await pause(300)}
@@ -52,6 +58,10 @@ async function step(name,action){
   const path="artifacts/phase-c/failed-"+stepNumber+"-"+name.replace(/[^a-z0-9-]/gi,"-")+".png";
   await page.screenshot({path,fullPage:true}).catch(()=>{});
   console.error("UI FAIL "+name+" screenshot="+path);
+  console.error("UI DIAGNOSTIC",JSON.stringify({
+    url:page.url(), pageErrors:pageErrors.slice(-8),netErrors:networkErrors.slice(-8),
+    text:(await page.locator("body").innerText().catch(()=>"[unreadable]")).slice(-700)
+  }));
   throw error;
  }
 }
@@ -70,6 +80,11 @@ try {
   await page.locator("#email").fill(email);
   await page.locator("#password").fill(password);
   await page.getByRole("button",{name:"Sign in",exact:true}).click();
+  await page.waitForTimeout(1000);
+  console.log("AUTH NAV DIAGNOSTIC",JSON.stringify({
+    path:new URL(page.url()).pathname,pageErrors:pageErrors.slice(-5),netErrors:networkErrors.slice(-5),
+    text:(await page.locator("body").innerText()).slice(-220)
+  }));
   await page.waitForURL(/\/dashboard(?:\?|$)/,{timeout:20000});
   await page.locator("aside nav").waitFor({timeout:20000});
  });
