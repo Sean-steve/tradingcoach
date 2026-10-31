@@ -2,8 +2,6 @@ name: TRADE OS — Local Supabase Database Certification
 
 on:
   pull_request:
-  push:
-    branches: ["feat/phases-a-b-*"]
   workflow_dispatch:
 
 permissions:
