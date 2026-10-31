@@ -39,4 +39,5 @@ if [[ $ready -ne 1 ]]; then
   exit 1
 fi
 node scripts/local/certify-browser.mjs
+node scripts/local/certify-worker.mjs
 echo "Phase C local certification passed."
