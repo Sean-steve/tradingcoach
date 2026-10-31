@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { formatMoney } from "@/lib/format";
+import { splitAllocationCents } from "@/lib/money-allocation";
 import { Trash2, Star, Plus } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/accounts")({
@@ -349,11 +350,12 @@ function AllocationPanel({ account, rule, byBucket, realized, allocated }: {
 
   const autoSplit = async () => {
     if (unallocated <= 0) return toast.error("Nothing to allocate");
-    if (Math.abs(totalPct - 100) > 0.5) return toast.error("Rule must sum to 100%");
+    if (Math.abs(totalPct - 100) > 0.000001) return toast.error("Rule must sum to exactly 100%");
     const { data: u } = await supabase.auth.getUser();
-    const rows = BUCKETS.map((b) => ({
+    const split = splitAllocationCents(Math.round(unallocated * 100) / 100, BUCKETS.map(b => Number(pcts[b])));
+    const rows = BUCKETS.map((b,i) => ({
       user_id: u.user!.id, account_id: account.id, bucket: b,
-      amount: +(unallocated * (Number(pcts[b]) / 100)).toFixed(2),
+      amount: split[i],
       note: "Auto-split from rule",
     })).filter((r) => r.amount > 0);
     const { error } = await supabase.from("profit_allocations").insert(rows);
