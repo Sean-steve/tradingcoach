@@ -98,7 +98,7 @@ function ReportsPage() {
           t.asset,
           t.direction,
           t.realized_rr ? formatNum(Number(t.realized_rr)) : "—",
-          formatAccountMoney(Number(t.pnl, active), "USD", { sign: true }),
+          formatAccountMoney(Number(t.pnl), active, { sign: true }),
           t.result,
         ]),
         headStyles: { fillColor: [10, 15, 30], textColor: 255 },
