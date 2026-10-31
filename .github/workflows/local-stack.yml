@@ -1,9 +1,8 @@
 name: TRADE OS — Local Supabase Database Certification
 
+# Full-system CI already starts Supabase and runs pgTAP + API checks.
+# Keep the focused DB suite manually runnable to avoid competing local stacks.
 on:
-  push:
-    branches: ["main"]
-  pull_request:
   workflow_dispatch:
 
 # Both workflows launch the same local Supabase project/ports on CI runners.
