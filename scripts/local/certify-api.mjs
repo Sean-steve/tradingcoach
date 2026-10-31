@@ -175,7 +175,12 @@ const repeat=expectOk(await a.rpc("tradeos_recommendation_action",{
 assert.equal(repeat.intervention_id,activate.intervention_id);
 const ivs=expectOk(await a.from("interventions").select("id").eq("recommendation_id",recommendation.id),"Guardrail count");
 assert.equal(ivs.length,1);
-deny(await b.from("interventions").update({status:"succeeded"}).eq("id",ivs[0].id),"Foreign guardrail mutation") // update might yield no affected rows under RLS; see dedicated test below.
+const inaccessibleChange=await b.from("interventions").update({status:"succeeded"}).eq("id",ivs[0].id).select("id");
+if (inaccessibleChange.error) {
+  assert.ok(inaccessibleChange.error);
+} else {
+  assert.equal(inaccessibleChange.data?.length,0,"RLS must hide foreign guardrails from UPDATE");
+}
 const actions=expectOk(await a.from("recommendation_actions").select("action").eq("recommendation_id",recommendation.id),"Actions history");
 assert.equal(actions.filter(x=>x.action==="activate").length,1);
 pass("audited recommendation acceptance and idempotent guardrail activation");
