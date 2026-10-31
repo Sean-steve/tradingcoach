@@ -2,7 +2,7 @@
 // No mocks, stubbed network responses, or screenshots of synthetic dashboards.
 // Requires: SUPABASE_URL / SUPABASE_PUBLISHABLE_KEY and local app on port 8080.
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { chromium } from "playwright";
 import { mkdir } from "node:fs/promises";
@@ -117,7 +117,8 @@ try {
   await page.getByRole("status").filter({hasText:"Imported 1 unique trades"}).waitFor({timeout:18000});
   await page.getByRole("button",{name:"Import 1 trades"}).click();
   await page.getByRole("status").filter({hasText:"skipped 1 duplicates"}).waitFor({timeout:18000});
-  const {data,error}=await db.from("trades").select("id").eq("source_key","phase-c-ui-"+tag);
+  const expectedKey=createHash("sha256").update(JSON.stringify(["ticket","phase-c-ui-"+tag])).digest("hex");
+  const {data,error}=await db.from("trades").select("id").eq("source_key",expectedKey);
   if(error)throw error;
   assert.equal(data.length,1);
  });
