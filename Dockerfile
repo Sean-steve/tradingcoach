@@ -1,5 +1,5 @@
 # Build produces public client assets. Never pass server secrets as build args.
-FROM oven/bun:1.3.5 AS build
+FROM oven/bun:1.4.4 AS build
 WORKDIR /workspace
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
