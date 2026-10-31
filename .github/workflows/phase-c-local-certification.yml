@@ -80,6 +80,13 @@ jobs:
           source .env.local
           set +a
           node scripts/local/certify-browser.mjs
+      - name: Certify scheduled intelligence processing against real local queue
+        shell: bash
+        run: |
+          set -a
+          source .env.local
+          set +a
+          node scripts/local/certify-worker.mjs
       - name: Collect sanitized failure diagnostics
         if: failure()
         shell: bash

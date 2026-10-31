@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: trade-os-worker
+  cancel-in-progress: false
+
 jobs:
   process:
     runs-on: ubuntu-latest
@@ -16,15 +20,45 @@ jobs:
       TRADE_OS_APP_URL: ${{ secrets.TRADE_OS_APP_URL }}
       TRADE_OS_CRON_SECRET: ${{ secrets.TRADE_OS_CRON_SECRET }}
     steps:
-      - name: Invoke protected worker
+      - name: Invoke protected bounded worker and check backlog
         shell: bash
         run: |
           set -euo pipefail
           if [[ -z "${TRADE_OS_APP_URL}" || -z "${TRADE_OS_CRON_SECRET}" ]]; then
-            echo "Worker not activated: configure TRADE_OS_APP_URL and TRADE_OS_CRON_SECRET."
+            echo "Not activated: configure TRADE_OS_APP_URL and TRADE_OS_CRON_SECRET in GitHub Actions secrets."
             exit 0
           fi
-          curl --fail-with-body --show-error --silent --retry 2 --max-time 120 \
-            -X POST "${TRADE_OS_APP_URL%/}/api/internal/intelligence" \
-            -H "Authorization: Bearer ${TRADE_OS_CRON_SECRET}" \
-            -H "Content-Type: application/json"
+          if [[ "${TRADE_OS_APP_URL}" != https://* || ${#TRADE_OS_CRON_SECRET} -lt 32 ]]; then
+            echo "Invalid worker URL or secret length (HTTPS and 32+ characters required)." >&2
+            exit 1
+          fi
+          APP="${TRADE_OS_APP_URL%/}"
+          result="$(mktemp)"
+          trap 'rm -f "$result"' EXIT
+          status="$(curl --silent --show-error --location --max-time 160 --retry 1 \
+            -o "$result" -w '%{http_code}' -X POST "$APP/api/internal/intelligence" \
+            -H "Authorization: Bearer $TRADE_OS_CRON_SECRET" \
+            -H "Content-Type: application/json")"
+          if [[ "$status" != 200 && "$status" != 207 ]]; then
+            echo "Worker invocation failed with HTTP $status" >&2
+            exit 1
+          fi
+          processed="$(jq -r '.processed // empty' < "$result")"
+          failed="$(jq -r '.failed // empty' < "$result")"
+          if [[ ! "$processed" =~ ^[0-9]+$ || ! "$failed" =~ ^[0-9]+$ ]]; then
+            echo "Worker response was not valid JSON metrics" >&2
+            exit 1
+          fi
+          echo "Processed $processed intelligence jobs; failed $failed."
+          echo "Intelligence jobs: $processed processed, $failed failed" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$failed" != 0 ]]; then
+            echo "One or more intelligence jobs failed; inspect protected queue status." >&2
+            exit 1
+          fi
+          # The protected GET returns 503 on failed or overdue queue work.
+          health="$(curl --silent --show-error --max-time 10 -o /dev/null -w '%{http_code}' \
+            "$APP/api/internal/intelligence" -H "Authorization: Bearer $TRADE_OS_CRON_SECRET")"
+          if [[ "$health" != 200 ]]; then
+            echo "Intelligence queue degraded (HTTP $health). Inspect worker logs and retry policy." >&2
+            exit 1
+          fi

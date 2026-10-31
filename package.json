@@ -19,7 +19,10 @@
     "local:stop": "bash scripts/local/supabase.sh stop",
     "local:verify": "bash scripts/local/verify.sh",
     "local:dev": "bash scripts/local/dev.sh",
-    "local:certify": "bash scripts/local/certify.sh"
+    "local:certify": "bash scripts/local/certify.sh",
+    "production:check": "node --experimental-strip-types scripts/ops/preflight.mjs",
+    "ops:backup": "bash scripts/ops/backup.sh",
+    "ops:restore-rehearsal": "bash scripts/ops/restore-rehearsal.sh"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

@@ -4,7 +4,7 @@ import { useActiveAccountId } from "@/lib/active-account";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { Suspense, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { accountsQuery, rulesQuery, strategiesQuery } from "@/lib/queries";
+import { accountsQuery, rulesQuery, strategiesQuery, tradesQuery } from "@/lib/queries";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,8 @@ function SettingsPage() {
 
   const { activeId } = useActiveAccountId();
   const acct = accounts.find((a) => a.id === activeId) ?? accounts[0];
+  const { data: trades } = useSuspenseQuery(tradesQuery(acct?.id));
+  const capitalLocked = trades.length > 0;
   const [balance, setBalance] = useState(String(acct?.starting_balance ?? 10000));
   const [maxDaily, setMaxDaily] = useState(String(acct?.max_daily_loss ?? ""));
   const [maxRisk, setMaxRisk] = useState(String(acct?.max_risk_pct ?? "1"));
@@ -36,10 +38,13 @@ function SettingsPage() {
   const [newRule, setNewRule] = useState("");
 
   const saveAccount = async () => {
+    if (!acct?.id) { toast.error("Select a trading account"); return; }
+    const newRisk = Number(maxRisk);
+    if (!Number.isFinite(newRisk) || newRisk < 0) { toast.error("Enter a valid risk limit"); return; }
     const { error } = await supabase.from("accounts").update({
-      starting_balance: Number(balance),
+      ...(!capitalLocked ? { starting_balance: Number(balance) } : {}),
       max_daily_loss: maxDaily ? Number(maxDaily) : null,
-      max_risk_pct: Number(maxRisk),
+      max_risk_pct: newRisk,
     }).eq("id", acct.id);
     if (error) toast.error(error.message);
     else { toast.success("Saved"); qc.invalidateQueries({ queryKey: ["accounts"] }); }
@@ -74,7 +79,14 @@ function SettingsPage() {
       <Card className="glow-card p-6 border-border/40 space-y-4">
         <h2 className="font-semibold">Account & Risk</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div><Label>Starting balance</Label><Input type="number" value={balance} onChange={(e) => setBalance(e.target.value)} className="mt-1" /></div>
+          <div>
+            <Label>Starting balance</Label>
+            <Input type="number" value={capitalLocked ? String(acct.starting_balance) : balance}
+              onChange={(e) => setBalance(e.target.value)} disabled={capitalLocked} className="mt-1" />
+            {capitalLocked && <p className="text-xs text-muted-foreground mt-2">
+              Locked after the first recorded trade. Corrections require an audited cash movement, not an opening-capital edit.
+            </p>}
+          </div>
           <div><Label>Max daily loss $</Label><Input type="number" value={maxDaily} onChange={(e) => setMaxDaily(e.target.value)} className="mt-1" /></div>
           <div><Label>Max risk % / trade</Label><Input type="number" step="0.1" value={maxRisk} onChange={(e) => setMaxRisk(e.target.value)} className="mt-1" /></div>
         </div>

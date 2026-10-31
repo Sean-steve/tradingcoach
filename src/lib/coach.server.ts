@@ -67,8 +67,12 @@ export function stripFence(s: string): string {
 
 async function resolveAccount(supabase: DB, userId: string, accountId?: string) {
   if (accountId) {
-    const { data } = await supabase.from("accounts").select("*").eq("id", accountId).limit(1);
-    if (data?.[0]) return data[0];
+    const { data, error } = await supabase.from("accounts")
+      .select("*").eq("id", accountId).eq("user_id", userId)
+      .eq("is_archived", false).limit(1);
+    if (error) throw error;
+    if (!data?.[0]) throw new Error("Requested trading account was not found");
+    return data[0];
   }
   const { data } = await supabase
     .from("accounts")

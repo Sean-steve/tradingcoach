@@ -603,6 +603,51 @@ export type Database = {
           },
         ]
       }
+      intelligence_jobs: {
+        Row: {
+          account_id: string
+          user_id: string
+          revision: number
+          claimed_revision: number | null
+          processed_revision: number
+          status: "pending" | "running" | "succeeded" | "failed"
+          attempts: number
+          next_attempt_at: string
+          locked_at: string | null
+          last_error: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          account_id?: string
+          user_id?: string
+          revision?: number
+          claimed_revision?: number | null
+          processed_revision?: number
+          status?: "pending" | "running" | "succeeded" | "failed"
+          attempts?: number
+          next_attempt_at?: string
+          locked_at?: string | null
+          last_error?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          user_id?: string
+          revision?: number
+          claimed_revision?: number | null
+          processed_revision?: number
+          status?: "pending" | "running" | "succeeded" | "failed"
+          attempts?: number
+          next_attempt_at?: string
+          locked_at?: string | null
+          last_error?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       goal_milestones: {
         Row: {
           id: string
