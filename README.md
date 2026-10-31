@@ -90,3 +90,18 @@ before configuring a server, linking any remote database or enabling GitHub Acti
 **Remaining production blockers:** account currency/cash reconciliation (#8), React console
 warning root cause (#9), remote security/staging, independent backups and restore proof.
 
+
+## Phase F — staging verification and production safeguards
+
+Phase F adds a staging-selectable production-equivalent Compose deployment, an environment marker in
+`GET /api/health`, a **read-only remote staging verifier**, and separately protected manual
+GitHub Actions gates for staging and production. Neither workflow deploys infrastructure, runs
+migrations, executes queue jobs or turns on automated trading. **No live staging or production
+environment has been activated.**
+
+The staging verifier requires the exact full 40-character deployed `main` SHA, verified HTTPS,
+real DB readiness, worker access denial for anonymous GET/POST and authenticated queue health.
+The production verification gate additionally refuses to pass while issues #8 or #9 are open
+and requires successful same-SHA foundation, database/browser, container and staging checks.
+
+See [Phase F infrastructure and operator activation](docs/development/PHASE_F_STAGING_INFRASTRUCTURE_ACTIVATION.md).
