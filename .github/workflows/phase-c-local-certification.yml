@@ -56,6 +56,13 @@ jobs:
           source .env.local
           set +a
           node scripts/local/certify-api.mjs
+      - name: Certify Phase F.1 cash ledger, currency boundaries and import audit on local database
+        shell: bash
+        run: |
+          set -a
+          source .env.local
+          set +a
+          node scripts/local/certify-finance.mjs
       - name: Install temporary pinned browser automation dependency
         run: bun add --no-save playwright@1.64.1
       - name: Install Chromium

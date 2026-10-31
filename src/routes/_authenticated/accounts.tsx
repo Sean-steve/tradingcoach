@@ -24,6 +24,12 @@ export const Route = createFileRoute("/_authenticated/accounts")({
 
 const BUCKETS = ["withdraw", "reinvest", "tax", "reserve"] as const;
 type Bucket = typeof BUCKETS[number];
+type AccountCurrency = { currency: string; currency_confirmed_at: string | null };
+function money(value: number, account: AccountCurrency, sign = false) {
+  return account.currency_confirmed_at ? formatMoney(value, account.currency, {sign})
+    : value.toFixed(2) + " (currency unverified)";
+}
+
 
 function AccountsPage() {
   const qc = useQueryClient();
@@ -36,16 +42,18 @@ function AccountsPage() {
   const [newName, setNewName] = useState("");
   const [newType, setNewType] = useState<"personal" | "prop_firm" | "funded" | "demo">("personal");
   const [newBalance, setNewBalance] = useState("10000");
+  const [newCurrency, setNewCurrency] = useState("USD");
   const [auditRows, setAuditRows] = useState<Array<{
-    account_id: string; account_name: string; starting_balance: number;
-    current_balance: number; trade_pnl: number; variance: number;
+    account_id: string; account_name: string; currency: string; currency_confirmed: boolean;
+    starting_balance: number; current_balance: number; trade_pnl: number;
+    net_cash: number; expected_balance: number; variance: number; status: string;
   }> | null>(null);
   const [auditBusy, setAuditBusy] = useState(false);
   const loadBalanceAudit = async () => {
     setAuditBusy(true);
     try {
-      if (!(await isPhase2Active())) throw new Error("Activate Phase 2 migration before running financial reconciliation.");
-      const { data, error } = await supabase.rpc("tradeos_balance_variances");
+      if (!(await isPhase2Active())) throw new Error("Financial migrations not active.");
+      const { data, error } = await supabase.rpc("tradeos_account_reconciliation");
       if (error) throw error;
       setAuditRows(data ?? []);
     } catch (err) {
@@ -69,25 +77,33 @@ function AccountsPage() {
     return m;
   }, [accounts, trades, allocations]);
 
-  const consolidated = useMemo(() => {
-    let bal = 0, pnl = 0, allocated = 0;
+  // Money cannot be added across currencies without verified FX evidence.
+  // Unknown historical currency is displayed separately, never assumed USD.
+  const byCurrency = useMemo(() => {
+    const grouped = new Map<string,{currency: string; verified: boolean; balance: number; pnl: number; allocated: number; count: number}>();
     for (const a of accounts) {
-      const r = perAccount.get(a.id)!;
-      bal += Number(a.starting_balance) + r.pnl - r.allocated;
-      pnl += r.pnl;
-      allocated += r.allocated;
+      const verified=!!a.currency_confirmed_at;
+      const key=verified ? a.currency : "UNREVIEWED";
+      const row=grouped.get(key) ?? {currency:key,verified,balance:0,pnl:0,allocated:0,count:0};
+      const stats=perAccount.get(a.id)!;
+      row.balance+=Number(a.current_balance);
+      row.pnl+=stats.pnl;
+      row.allocated+=stats.allocated;
+      row.count++;
+      grouped.set(key,row);
     }
-    return { bal, pnl, allocated };
+    return [...grouped.values()].sort((a,b)=>a.currency.localeCompare(b.currency));
   }, [accounts, perAccount]);
 
   const createAccount = async () => {
     if (!newName.trim()) return;
+    if (!/^[A-Z]{3}$/.test(newCurrency)) return toast.error("Choose a three-letter account currency");
     const { data: u } = await supabase.auth.getUser();
     const { error } = await supabase.from("accounts").insert({
-      user_id: u.user!.id, name: newName.trim(), account_type: newType, starting_balance: Number(newBalance), current_balance: Number(newBalance),
+      user_id: u.user!.id, name: newName.trim(), account_type: newType, starting_balance: Number(newBalance), currency: newCurrency,
     });
     if (error) return toast.error(error.message);
-    setNewName(""); setNewBalance("10000");
+    setNewName(""); setNewBalance("10000"); setNewCurrency("USD");
     toast.success("Account created");
     qc.invalidateQueries({ queryKey: ["accounts"] });
   };
@@ -116,51 +132,49 @@ function AccountsPage() {
         <p className="text-sm text-muted-foreground mt-1">Manage prop firm, personal, funded, and demo accounts. Allocate profits into withdraw / reinvest / tax / reserve buckets.</p>
       </div>
 
-      {/* Consolidated */}
+      {/* Deliberately grouped; NEVER sum currencies without verified FX. */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="glow-card p-6 border-border/40">
-          <div className="text-xs uppercase tracking-wider text-muted-foreground">Consolidated Balance</div>
-          <div className="mt-2 text-3xl font-bold number-mono">{formatMoney(consolidated.bal)}</div>
-          <div className="text-xs text-muted-foreground mt-1">Across {accounts.length} account(s)</div>
-        </Card>
-        <Card className="glow-card p-6 border-border/40">
-          <div className="text-xs uppercase tracking-wider text-muted-foreground">Realized P&L</div>
-          <div className={`mt-2 text-3xl font-bold number-mono text-${consolidated.pnl >= 0 ? "profit" : "loss"}`}>{formatMoney(consolidated.pnl, "USD", { sign: true })}</div>
-        </Card>
-        <Card className="glow-card p-6 border-border/40">
-          <div className="text-xs uppercase tracking-wider text-muted-foreground">Total Allocated</div>
-          <div className="mt-2 text-3xl font-bold number-mono">{formatMoney(consolidated.allocated)}</div>
-          <div className="text-xs text-muted-foreground mt-1">Withdrawn/moved out of trading balance</div>
-        </Card>
+        {byCurrency.map(group => (
+          <Card key={group.currency} className="glow-card p-6 border-border/40 space-y-2">
+            <div className="text-xs uppercase tracking-wider text-muted-foreground">
+              {group.verified ? group.currency + " accounts" : "Unreviewed historical currencies"}
+            </div>
+            <div className="text-2xl font-bold number-mono">
+              {group.verified ? formatMoney(group.balance,group.currency) : group.balance.toFixed(2)+" (units unverified)"}
+            </div>
+            <div className="text-xs text-muted-foreground">Booked balance · {group.count} account(s)</div>
+            <div className="text-xs">Realized P&amp;L: {group.verified ? formatMoney(group.pnl,group.currency,{sign:true}) : group.pnl.toFixed(2)+" (unverified)"}</div>
+            <div className="text-xs">Earmarked: {group.verified ? formatMoney(group.allocated,group.currency) : group.allocated.toFixed(2)+" (unverified)"}</div>
+          </Card>
+        ))}
       </div>
-
       <Card className="glow-card p-6 border-border/40 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="font-semibold">Financial Reconciliation (Read-only)</h2>
-            <p className="text-xs text-muted-foreground">Compare stored balances to opening capital plus closed-trade P&amp;L. Differences can result from earlier client-side updates, external funding, withdrawals or allocated funds; never auto-adjust historical balances.</p>
+            <p className="text-xs text-muted-foreground">Compare booked balances with opening capital + realized trading P&amp;L + recorded deposits − withdrawals. Profit allocations are earmarks, not cash. No historical values are automatically changed.</p>
           </div>
           <Button variant="outline" disabled={auditBusy} onClick={loadBalanceAudit}>{auditBusy ? "Checking…" : "Verify balances"}</Button>
         </div>
         {auditRows && <div className="space-y-2">
           {auditRows.map(row => (
-            <div key={row.account_id} className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs border border-border/40 rounded p-3">
-              <span className="font-semibold">{row.account_name}</span>
-              <span>Actual: {formatMoney(Number(row.current_balance))}</span>
-              <span>Trade-only projection: {formatMoney(Number(row.starting_balance) + Number(row.trade_pnl))}</span>
-              <span className={Math.abs(Number(row.variance)) > 0.01 ? "text-loss" : "text-profit"}>
-                Variance: {formatMoney(Number(row.variance))}
+            <div key={row.account_id} className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs border border-border/40 rounded p-3">
+              <span className="font-semibold">{row.account_name} · {row.currency_confirmed ? row.currency : "currency unreviewed"}</span>
+              <span>Booked: {row.current_balance} · Expected: {row.expected_balance}</span>
+              <span>Realized: {row.trade_pnl} · Net cash: {row.net_cash}</span>
+              <span className={row.status === "balanced" ? "text-profit" : "text-loss"}>
+                {row.status} · Variance: {row.variance}
               </span>
             </div>
           ))}
-          <p className="text-xs text-muted-foreground">Review discrepancies against broker statements, deposits, withdrawals and allocations. This screen does not write to balances.</p>
+          <p className="text-xs text-muted-foreground">Review any variance and unconfirmed historical currencies against external statements before a supervised correction. This audit never writes balances.</p>
         </div>}
       </Card>
 
       {/* New account */}
       <Card className="glow-card p-6 border-border/40 space-y-4">
         <h2 className="font-semibold flex items-center gap-2"><Plus className="h-4 w-4 text-primary" /> New account</h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
           <div><Label>Name</Label><Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="FTMO $100k" className="mt-1" /></div>
           <div>
             <Label>Type</Label>
@@ -175,6 +189,7 @@ function AccountsPage() {
             </Select>
           </div>
           <div><Label>Starting balance</Label><Input type="number" value={newBalance} onChange={(e) => setNewBalance(e.target.value)} className="mt-1" /></div>
+          <div><Label>Currency (ISO 4217)</Label><Input maxLength={3} value={newCurrency} onChange={e=>setNewCurrency(e.target.value.toUpperCase())} className="mt-1" /></div>
           <div className="flex items-end"><Button onClick={createAccount} className="w-full">Create</Button></div>
         </div>
       </Card>
@@ -183,7 +198,7 @@ function AccountsPage() {
       <div className="space-y-4">
         {accounts.map((a) => {
           const stats = perAccount.get(a.id)!;
-          const balance = Number(a.starting_balance) + stats.pnl - stats.allocated;
+          const balance = Number(a.current_balance);
           const rule = rules.find((r) => r.account_id === a.id);
           return (
             <Card key={a.id} className="glow-card p-6 border-border/40">
@@ -194,12 +209,12 @@ function AccountsPage() {
                     <span className="text-[10px] uppercase tracking-wider text-muted-foreground border border-border/40 rounded px-1.5 py-0.5">{a.account_type}</span>
                     {a.is_default && <span className="text-[10px] uppercase tracking-wider text-primary border border-primary/40 rounded px-1.5 py-0.5">Default</span>}
                   </div>
-                  <div className="text-xs text-muted-foreground mt-1">Start: {formatMoney(Number(a.starting_balance))} · Realized P&L: <span className={`text-${stats.pnl >= 0 ? "profit" : "loss"}`}>{formatMoney(stats.pnl, "USD", { sign: true })}</span></div>
+                  <div className="text-xs text-muted-foreground mt-1">Start: {money(Number(a.starting_balance),a)} · Realized P&amp;L: <span className={`text-${stats.pnl >= 0 ? "profit" : "loss"}`}>{money(stats.pnl,a,true)}</span></div>
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="text-right">
                     <div className="text-xs text-muted-foreground uppercase tracking-wider">Balance</div>
-                    <div className="text-2xl font-bold number-mono">{formatMoney(balance)}</div>
+                    <div className="text-2xl font-bold number-mono">{money(balance,a)}</div>
                   </div>
                   <div className="flex flex-col gap-1">
                     <Button size="sm" variant="ghost" onClick={() => setActive(a.id)}>Use</Button>
@@ -209,6 +224,7 @@ function AccountsPage() {
                 </div>
               </div>
 
+              <CashMovementPanel account={a} onRecorded={() => { qc.invalidateQueries({queryKey:["accounts"]}); setAuditRows(null); }} />
               <AllocationPanel account={a} rule={rule} byBucket={stats.byBucket} realized={stats.pnl} allocated={stats.allocated} />
             </Card>
           );
@@ -218,8 +234,76 @@ function AccountsPage() {
   );
 }
 
+function CashMovementPanel({ account, onRecorded }: {
+  account: {id: string} & AccountCurrency; onRecorded: () => void;
+}) {
+  const [kind,setKind] = useState<"deposit"|"withdrawal">("deposit");
+  const [amount,setAmount] = useState("");
+  const [reference,setReference] = useState("");
+  const [currency,setCurrency] = useState(account.currency);
+  const [busy,setBusy] = useState(false);
+  const qc = useQueryClient();
+  const confirmed=!!account.currency_confirmed_at;
+  const submit = async () => {
+    const amountNumber=Number(amount);
+    if (!confirmed || !Number.isFinite(amountNumber) || amountNumber<=0 ||
+        Math.round(amountNumber*100)!==amountNumber*100) {
+      toast.error("Confirm the currency and enter a positive, cent-exact amount");
+      return;
+    }
+    setBusy(true);
+    try {
+      const {data,error}=await supabase.rpc("tradeos_record_cash_movement",{
+        p_account:account.id,p_kind:kind,p_amount:amountNumber,
+        p_idempotency_key:crypto.randomUUID(),p_reference:reference.trim()||null,
+      });
+      if(error)throw error;
+      toast.success(data?.duplicate ? "Already recorded" : "Cash movement recorded — not bank-verified");
+      setAmount("");setReference("");
+      onRecorded();
+      qc.invalidateQueries({queryKey:["account_cash_movements"]});
+    }catch(e){toast.error(e instanceof Error?e.message:"Unable to record cash movement")}
+    finally{setBusy(false)}
+  };
+  const confirmCurrency = async () => {
+    const wanted=currency.toUpperCase();
+    if(!/^[A-Z]{3}$/.test(wanted))return toast.error("Three-letter uppercase currency required");
+    const {error}=await supabase.rpc("tradeos_confirm_account_currency",{
+      p_account:account.id,p_currency:wanted,
+    });
+    if(error)return toast.error(error.message);
+    onRecorded();
+    toast.success("Account currency confirmed");
+  };
+  return (
+    <div className="mt-4 pt-4 border-t border-border/40 space-y-3">
+      <div className="text-xs font-semibold uppercase text-muted-foreground">Cash journal · {confirmed ? account.currency : "currency review required"}</div>
+      {!confirmed && <div className="space-y-2 text-xs text-amber-600">
+        Historical currency is unconfirmed. Accounts with existing trades need supervised reconciliation.
+        <div className="flex gap-2 items-center">
+          <Input aria-label="Confirm account currency" maxLength={3} value={currency} onChange={e=>setCurrency(e.target.value.toUpperCase())} className="max-w-24 h-8"/>
+          <Button type="button" size="sm" variant="outline" onClick={confirmCurrency}>Confirm unused account</Button>
+        </div>
+      </div>}
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+        <Select value={kind} onValueChange={v=>setKind(v as "deposit"|"withdrawal")}>
+          <SelectTrigger aria-label="Cash movement type"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="deposit">Deposit</SelectItem>
+            <SelectItem value="withdrawal">Withdrawal</SelectItem>
+          </SelectContent>
+        </Select>
+        <Input type="number" min="0.01" step="0.01" aria-label="Cash movement amount" placeholder="Amount" value={amount} onChange={e=>setAmount(e.target.value)}/>
+        <Input aria-label="Cash movement reference" placeholder="Optional reference" maxLength={200} value={reference} onChange={e=>setReference(e.target.value)}/>
+        <Button type="button" disabled={!confirmed||busy} onClick={submit}>{busy?"Recording…":"Record cash movement"}</Button>
+      </div>
+      <p className="text-xs text-muted-foreground">Manual record only; does not verify an external bank or broker transfer. Profit earmarks below do not change booked cash.</p>
+    </div>
+  );
+}
+
 function AllocationPanel({ account, rule, byBucket, realized, allocated }: {
-  account: { id: string };
+  account: { id: string } & AccountCurrency;
   rule: { withdraw_pct: number; reinvest_pct: number; tax_pct: number; reserve_pct: number } | undefined;
   byBucket: Record<Bucket, number>;
   realized: number;
@@ -259,7 +343,7 @@ function AllocationPanel({ account, rule, byBucket, realized, allocated }: {
     });
     if (error) return toast.error(error.message);
     setAmount(""); setNote("");
-    toast.success(`${formatMoney(amt)} → ${bucket}`);
+    toast.success(`${money(amt,account)} earmarked for ${bucket}`);
     qc.invalidateQueries({ queryKey: ["profit_allocations"] });
   };
 
@@ -287,12 +371,12 @@ function AllocationPanel({ account, rule, byBucket, realized, allocated }: {
           {BUCKETS.map((b) => (
             <div key={b} className="flex items-center justify-between text-sm">
               <span className="capitalize">{b}</span>
-              <span className="number-mono">{formatMoney(byBucket[b])}</span>
+              <span className="number-mono">{money(byBucket[b],account)}</span>
             </div>
           ))}
           <div className="flex items-center justify-between text-sm pt-2 border-t border-border/30">
             <span className="text-muted-foreground">Unallocated profit</span>
-            <span className={`number-mono text-${unallocated > 0 ? "profit" : "muted"}`}>{formatMoney(unallocated)}</span>
+            <span className={`number-mono text-${unallocated > 0 ? "profit" : "muted"}`}>{money(unallocated,account)}</span>
           </div>
         </div>
       </div>
