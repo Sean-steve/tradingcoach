@@ -25,11 +25,11 @@ jobs:
         with:
           node-version: "22"
       - uses: oven-sh/setup-bun@v2
+      - name: Install project dependencies with frozen lockfile
+        run: bun install --frozen-lockfile
       - uses: supabase/setup-cli@v3
         with:
           version: 2.84.2
-      - name: Install project dependencies with frozen lockfile
-        run: bun install --frozen-lockfile
       - name: Start isolated local Supabase with all tracked migrations
         run: supabase start -x realtime,imgproxy,vector,logflare,supavisor
       - name: Configure local test credentials and prevent external database access
