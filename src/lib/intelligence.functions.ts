@@ -12,12 +12,10 @@ export const runIntelligence = createServerFn({ method: "POST" })
     const { data: allowed, error: quotaError } = await context.supabase.rpc("consume_ai_quota", {
       p_function: "runIntelligence",
     });
-    // During migration rollout the quota RPC may not exist yet.
-    // Only the documented "undefined function" error permits legacy mode.
-    if (quotaError && quotaError.code !== "PGRST202" && quotaError.code !== "42883") {
-      throw new Error("Unable to verify request quota");
-    }
-    if (!quotaError && !allowed) throw new Error("Hourly AI request limit reached; try again later.");
+    // Fail closed: a missing/stale quota RPC is a deployment defect, not
+    // permission to generate unlimited AI requests.
+    if (quotaError) throw new Error("Unable to verify request quota");
+    if (!allowed) throw new Error("Hourly AI request limit reached; try again later.");
     const { runIntelligencePipeline } = await import("@/lib/intelligence.server");
     const { data: phase3Ready, error: phaseError } = await context.supabase.rpc("tradeos_phase3_ready");
     if (phaseError && !["42883","PGRST202"].includes(phaseError.code)) throw phaseError;
