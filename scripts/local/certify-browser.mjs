@@ -81,6 +81,31 @@ async function visit(path,expected){
  if(expected)assert.ok(body.includes(expected),"Screen "+path+" lacks '"+expected+"': "+body.slice(0,350));
 }
 try {
+ await step("Health and real database readiness routes",async()=>{
+  const alive=await page.request.get(root+"/api/health");
+  assert.equal(alive.status(),200);
+  assert.equal((await alive.json()).status,"ok");
+  const ready=await page.request.get(root+"/api/ready");
+  assert.equal(ready.status(),200,"Database readiness must perform a real query");
+  assert.equal((await ready.json()).database,"reachable");
+ });
+ await step("Worker routes reject requests without a secret",async()=>{
+  const get=await page.request.get(root+"/api/internal/intelligence");
+  const post=await page.request.post(root+"/api/internal/intelligence");
+  assert.equal(get.status(),401);
+  assert.equal(post.status(),401);
+ });
+ await step("Protected worker monitoring responds with aggregate counts",async()=>{
+  const token=process.env.TRADE_OS_CRON_SECRET;
+  assert.ok(token&&token.length>=32);
+  const status=await page.request.get(root+"/api/internal/intelligence",{
+    headers:{Authorization:"Bearer "+token}
+  });
+  assert.equal(status.status(),200);
+  const json=await status.json();
+  assert.ok(Number.isInteger(json.queue.pending),"Queue status must return aggregate counts");
+  assert.equal(json.status,"ok");
+ });
  await step("Email/password login routes to command center",async()=>{
   await page.goto(root+"/auth",{waitUntil:"domcontentloaded"});
   await page.locator("#email").fill(email);
