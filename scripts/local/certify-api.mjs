@@ -46,6 +46,28 @@ assert.notEqual(accA.id,accB.id);
 const opening=Number(accA.starting_balance);
 pass("signup provisions isolated accounts and profiles");
 
+const capitalAccount=expectOk(await a.from("accounts").insert({
+  user_id:uidA,name:"Phase E opening capital "+runId,
+  account_type:"personal",starting_balance:300,
+}).select("*").single(),"Create unused capital account");
+const changedCapital=expectOk(await a.from("accounts").update({
+  starting_balance:350
+}).eq("id",capitalAccount.id).select("starting_balance,current_balance").single(),"Edit unused opening capital");
+approx(changedCapital.starting_balance,350,"Baseline corrected before activity");
+approx(changedCapital.current_balance,350,"Unused account balance follows baseline");
+expectOk(await a.from("trades").insert({
+  user_id:uidA,account_id:capitalAccount.id,asset:"EURUSD",direction:"long",
+  entered_at:"2026-10-25T08:00:00Z",exited_at:"2026-10-25T08:05:00Z",
+  result:"win",pnl:10,
+}),"Create capital-lock activation trade");
+deny(await a.from("accounts").update({starting_balance:9999}).eq("id",capitalAccount.id)
+  .select("id"),"No silent opening-capital changes after trade history exists");
+const protectedCapital=expectOk(await a.from("accounts")
+  .select("starting_balance,current_balance").eq("id",capitalAccount.id).single(),"Financial guard read");
+approx(protectedCapital.starting_balance,350,"Immutable starting capital");
+approx(protectedCapital.current_balance,360,"Unchanged booked capital after rejected update");
+pass("starting balance editable before trading but frozen once financial history exists");
+
 const date="2026-10-25T09:00:00.000Z";
 const spot = expectOk(await a.from("trades").insert({
  user_id:uidA,account_id:accA.id,asset:"EURUSD",direction:"long",
