@@ -48,6 +48,9 @@ export async function verifyDeployment(env, fetcher = globalThis.fetch) {
   const expectedSha = env.TRADE_OS_EXPECTED_SHA;
   const expectedEnvironment = env.TRADE_OS_EXPECTED_ENV || "staging";
   const secret = env.TRADE_OS_CRON_SECRET;
+  const expectedProject = env.TRADE_OS_EXPECTED_PROJECT_REF;
+  if (!/^[a-z0-9]{20}$/.test(expectedProject || ""))
+    throw Error("Expected dedicated database project ref is required");
   assertReleaseSha(expectedSha);
   assertEnvironment(expectedEnvironment);
   if (!secret || secret.length < 32 || /^(replace|example|changeme)/i.test(secret))
@@ -63,7 +66,9 @@ export async function verifyDeployment(env, fetcher = globalThis.fetch) {
   const ready = await probe(fetcher, base, "/api/ready");
   requireStatus(ready, 200, "/api/ready");
   const readyData = await json(ready, "/api/ready");
-  if (readyData.status !== "ready" || readyData.database !== "reachable")
+  if (readyData.status !== "ready" || readyData.database !== "reachable" ||
+      readyData.financial_schema !== "phase-f1" ||
+      readyData.project_ref !== expectedProject)
     throw Error("Database not verified ready");
 
   const anonymousRead = await probe(fetcher, base, "/api/internal/intelligence");
@@ -79,7 +84,7 @@ export async function verifyDeployment(env, fetcher = globalThis.fetch) {
     throw Error("Queue health is degraded or malformed");
 
   return { status: "verified", environment: expectedEnvironment, release: expectedSha,
-    checks: ["release identity", "database ready", "worker authentication", "queue health"] };
+    checks: ["release identity", "financial schema ready", "worker authentication", "queue health"] };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

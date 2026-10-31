@@ -41,7 +41,7 @@ jobs:
               echo "Production blocked: unresolved repository issue #$issue"; exit 1;
             fi
           done
-          for workflow in ci.yml phase-c-local-certification.yml production-container.yml phase-f-staging-verification.yml; do
+          for workflow in ci.yml phase-c-local-certification.yml production-container.yml phase-f-staging-verification.yml phase-f2-financial-release-review.yml; do
             matches="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow/runs?head_sha=$RELEASE_SHA&per_page=100" \
               --jq '[.workflow_runs[] | select(.head_sha=="'"${RELEASE_SHA}"'" and .conclusion=="success")] | length')"
             if [[ "$matches" -lt 1 ]]; then
@@ -58,6 +58,7 @@ jobs:
           TRADE_OS_CRON_SECRET: ${{ secrets.TRADE_OS_CRON_SECRET }}
           TRADE_OS_EXPECTED_SHA: ${{ inputs.release_sha }}
           TRADE_OS_EXPECTED_ENV: production
+          TRADE_OS_EXPECTED_PROJECT_REF: ${{ secrets.TRADE_OS_PRODUCTION_PROJECT_REF }}
         run: node scripts/ops/staging-smoke.mjs
       - name: Record verification only (never deploy, migrate or dispatch worker)
         if: success()

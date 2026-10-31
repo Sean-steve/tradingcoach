@@ -123,3 +123,18 @@ and no FX conversion or verified broker transfers are implied.
 
 This work does not create a remote database, apply remote migrations, configure
 private GitHub environment secrets or activate production.
+
+## Phase F.2 — staging financial certification and production release gates
+
+- Historical currency and cash reconciliation is explicitly **read-only**:
+  `scripts/ops/historical-financial-audit.sql`. Save sensitive audit output privately.
+- Browser certification now rejects ALL console errors (Issue #9 exception removed);
+  auth invalidation is deferred to avoid pre-mount route updates.
+- `/api/ready` and the remote staging verifier require Phase F.1 financial
+  table readiness and compare the exact Supabase project ref.
+- Financial release review requires independently retained evidence fingerprints,
+  actual off-host restore proof and protected GitHub environment approval.
+- **Nothing here creates a staging database, deploys an app, applies migrations,
+  modifies historic balances or activates production.**
+
+Read the [Phase F.2 activation and reconciliation runbook](docs/development/PHASE_F2_STAGING_RECONCILIATION_RELEASE.md).
