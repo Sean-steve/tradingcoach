@@ -20,7 +20,7 @@ echo "Running live local pgTAP and Phase C API certification..."
 bash scripts/local/supabase.sh test db
 node scripts/local/certify-api.mjs
 echo "Installing pinned, temporary Playwright runner..."
-bun add --no-save playwright@1.56.1
+bun add --no-save playwright@1.64.1
 bunx playwright install chromium
 app_pid=""
 if ! curl --silent --fail http://127.0.0.1:8080/ >/dev/null 2>&1; then
