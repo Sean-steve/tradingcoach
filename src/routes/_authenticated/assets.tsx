@@ -3,6 +3,7 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense } from "react";
 import { accountsQuery, tradesQuery } from "@/lib/queries";
 import { DimensionDashboard } from "@/components/dimension-dashboard";
+import { useActiveAccountId } from "@/lib/active-account";
 import type { TradeLike } from "@/lib/metrics";
 
 export const Route = createFileRoute("/_authenticated/assets")({
@@ -15,7 +16,9 @@ export const Route = createFileRoute("/_authenticated/assets")({
 
 function Page() {
   const { data: accounts } = useSuspenseQuery(accountsQuery());
-  const { data: trades } = useSuspenseQuery(tradesQuery(accounts[0]?.id));
+  const { activeId } = useActiveAccountId();
+  const selectedAccount = accounts.find(a => a.id === activeId) ?? accounts[0];
+  const { data: trades } = useSuspenseQuery(tradesQuery(selectedAccount?.id));
   return (
     <DimensionDashboard title="Assets" trades={trades as unknown as TradeLike[]} keyOf={(t) => t.asset || "unknown"} />
   );

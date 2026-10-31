@@ -1,0 +1,96 @@
+name: TRADE OS — Phase C Full-System Local Certification
+
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "scripts/local/**"
+      - "supabase/**"
+      - "tests/**"
+      - "bun.lock"
+      - "package.json"
+      - ".github/workflows/phase-c-local-certification.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  phase-c:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: oven-sh/setup-bun@v2
+      - name: Install project dependencies with frozen lockfile
+        run: bun install --frozen-lockfile
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.84.2
+      - name: Start isolated local Supabase with all tracked migrations
+        run: supabase start -x realtime,imgproxy,vector,logflare,supavisor
+      - name: Configure local test credentials and prevent external database access
+        run: bash scripts/local/env.sh --force
+      - name: Unit tests, standalone build and TypeScript
+        run: |
+          bun run test
+          bun run build
+          bun run typecheck
+      - name: Real PostgreSQL/RLS pgTAP suite
+        run: supabase test db
+      - name: Certify financial lifecycle, permissions, coaching and rewards via actual database API
+        shell: bash
+        run: |
+          set -a
+          source .env.local
+          set +a
+          node scripts/local/certify-api.mjs
+      - name: Install temporary pinned browser automation dependency
+        run: bun add --no-save playwright@1.64.1
+      - name: Install Chromium
+        run: bunx playwright install --with-deps chromium
+      - name: Start independent TanStack Start application
+        shell: bash
+        run: |
+          nohup bash scripts/local/dev.sh > /tmp/trade-os-server.log 2>&1 &
+          echo "$!" > /tmp/trade-os-server.pid
+          for i in $(seq 1 90); do
+            if curl --silent --fail http://127.0.0.1:8080/ >/dev/null; then
+              echo "TRADE OS responded on localhost:8080"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "App failed readiness check" >&2
+          tail -n 100 /tmp/trade-os-server.log >&2
+          exit 1
+      - name: Certify all screens and live UI workflows in headless Chromium
+        shell: bash
+        run: |
+          set -a
+          source .env.local
+          set +a
+          node scripts/local/certify-browser.mjs
+      - name: Collect sanitized failure diagnostics
+        if: failure()
+        shell: bash
+        run: |
+          mkdir -p artifacts/phase-c
+          if [[ -f /tmp/trade-os-server.log ]]; then
+            tail -n 250 /tmp/trade-os-server.log \
+              | sed -E 's/(sb_secret_[A-Za-z0-9_-]+|eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)/[REDACTED]/g' \
+              > artifacts/phase-c/server.log
+          fi
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: trade-os-phase-c-failures
+          path: artifacts/phase-c/
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Stop isolated local Supabase
+        if: always()
+        run: supabase stop || true
