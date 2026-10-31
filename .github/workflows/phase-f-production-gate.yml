@@ -1,0 +1,67 @@
+name: TRADE OS — Phase F Production Gate (No Deployment)
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: "Full 40-character main SHA, already staged and independently verified"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  issues: read
+  actions: read
+
+concurrency:
+  group: trade-os-production-promotion-gate
+  cancel-in-progress: false
+
+jobs:
+  authorize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: trade-os-production
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_SHA: ${{ inputs.release_sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enforce main, unresolved release debt, CI and staging evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_SHA" =~ ^[a-f0-9]{40}$ ]] || { echo "Invalid SHA"; exit 1; }
+          [[ "${{ github.ref }}" == "refs/heads/main" && "$GITHUB_SHA" == "$RELEASE_SHA" ]] || {
+            echo "Production gate only evaluates the current main SHA"; exit 1;
+          }
+          for issue in 8 9; do
+            state="$(gh api "repos/$GITHUB_REPOSITORY/issues/$issue" --jq '.state')"
+            if [[ "$state" != "closed" ]]; then
+              echo "Production blocked: unresolved repository issue #$issue"; exit 1;
+            fi
+          done
+          for workflow in ci.yml phase-c-local-certification.yml production-container.yml phase-f-staging-verification.yml; do
+            matches="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow/runs?head_sha=$RELEASE_SHA&per_page=100" \
+              --jq '[.workflow_runs[] | select(.head_sha=="'"${RELEASE_SHA}"'" and .conclusion=="success")] | length')"
+            if [[ "$matches" -lt 1 ]]; then
+              echo "Production blocked: no successful $workflow verification at release SHA"; exit 1;
+            fi
+          done
+          echo "Release debt, CI and staging evidence checks passed." >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Read-only production endpoint verification
+        env:
+          TRADE_OS_APP_URL: ${{ secrets.TRADE_OS_APP_URL }}
+          TRADE_OS_CRON_SECRET: ${{ secrets.TRADE_OS_CRON_SECRET }}
+          TRADE_OS_EXPECTED_SHA: ${{ inputs.release_sha }}
+          TRADE_OS_EXPECTED_ENV: production
+        run: node scripts/ops/staging-smoke.mjs
+      - name: Record verification only (never deploy, migrate or dispatch worker)
+        if: success()
+        shell: bash
+        run: |
+          echo "Production external verification PASS for ${{ inputs.release_sha }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "This workflow does not deploy infrastructure, run migrations, or authorize broker trading." >> "$GITHUB_STEP_SUMMARY"

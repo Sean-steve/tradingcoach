@@ -1,0 +1,51 @@
+name: TRADE OS — Phase F Staging Verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: "Full 40-character main commit SHA deployed to staging"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: trade-os-staging-verification
+  cancel-in-progress: false
+
+jobs:
+  staging:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: trade-os-staging
+    env:
+      TRADE_OS_APP_URL: ${{ secrets.TRADE_OS_APP_URL }}
+      TRADE_OS_CRON_SECRET: ${{ secrets.TRADE_OS_CRON_SECRET }}
+      TRADE_OS_EXPECTED_SHA: ${{ inputs.release_sha }}
+      TRADE_OS_EXPECTED_ENV: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Require the exact main commit, not an arbitrary branch
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_SHA" =~ ^[a-f0-9]{40}$ ]] || { echo "Invalid SHA"; exit 1; }
+          [[ "${{ github.ref }}" == "refs/heads/main" ]] || { echo "Run staging verification from main"; exit 1; }
+          [[ "$GITHUB_SHA" == "$RELEASE_SHA" ]] || { echo "Deploy and verify this exact main commit"; exit 1; }
+      - name: Read-only real staging certification
+        run: node scripts/ops/staging-smoke.mjs
+      - name: Record staging evidence
+        if: success()
+        shell: bash
+        run: |
+          echo "Staging remote smoke PASS" >> "$GITHUB_STEP_SUMMARY"
+          echo "Exact release commit: ${{ inputs.release_sha }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Checks: HTTPS identity, environment, database readiness, unauthorized worker isolation, authorized queue health." >> "$GITHUB_STEP_SUMMARY"
+          echo "No migrations, writes, fixture creation, or authenticated worker POST were performed." >> "$GITHUB_STEP_SUMMARY"
