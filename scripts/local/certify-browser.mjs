@@ -237,6 +237,13 @@ try {
   await page.getByText("NZDJPY",{exact:true}).first().waitFor({timeout:10000});
   assert.equal(await page.getByText("BTCUSD",{exact:true}).count(),0,"Trade Journal leaked first account's records");
  });
+ await step("Repeated authenticated Suspense routes produce no pre-mount console errors",async()=>{
+   for(const path of ["/forecast","/dashboard","/forecast","/accounts"]){
+     await visit(path,null);
+   }
+   assert.equal(consoleErrors.length,0,
+     "Repeated account views emitted console errors: "+JSON.stringify(consoleErrors.slice(-8)));
+ });
  // Strict by default: no acknowledged React warning or other console.error.
  // Console source locations and route context are preserved for diagnosis.
  assert.equal(consoleErrors.length,0,

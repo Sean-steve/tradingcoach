@@ -119,31 +119,22 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-  const router = useRouter();
 
   useEffect(() => {
-    // Supabase auth events can be emitted synchronously while a Suspense route is
-    // still rendering. Defer router/query updates until AFTER that commit.
-    // Cancel queued updates on cleanup so unmounted roots cannot be updated.
-    let alive = true;
-    const pending = new Set<ReturnType<typeof setTimeout>>();
+    // Do not invalidate TanStack route or query state from a Supabase auth
+    // callback: SIGNED_IN fires during session hydration and can race with
+    // Suspense before its first commit. Explicit sign-in routes already navigate
+    // and mutations invalidate their own queries.
+    //
+    // SIGNED_OUT still performs a hard navigation, including cross-tab logout,
+    // so cached private UI is torn down without any React state update.
     const { data } = supabase.auth.onAuthStateChange((event) => {
-      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
-      const timer = setTimeout(() => {
-        pending.delete(timer);
-        if (!alive) return;
-        void router.invalidate();
-        if (event !== "SIGNED_OUT") void queryClient.invalidateQueries();
-      }, 0);
-      pending.add(timer);
+      if (event === "SIGNED_OUT" && window.location.pathname !== "/auth") {
+        window.location.replace("/auth");
+      }
     });
-    return () => {
-      alive = false;
-      data.subscription.unsubscribe();
-      pending.forEach(clearTimeout);
-      pending.clear();
-    };
-  }, [router, queryClient]);
+    return () => data.subscription.unsubscribe();
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
