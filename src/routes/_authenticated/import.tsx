@@ -2,10 +2,11 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { isPhase2Active } from "@/lib/foundation-readiness";
 import { normalizeCsvRows } from "@/lib/csv-import";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Papa from "papaparse";
 import { supabase } from "@/integrations/supabase/client";
 import { accountsQuery } from "@/lib/queries";
+import { useActiveAccountId } from "@/lib/active-account";
 import { sessionFromDate } from "@/lib/metrics";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -28,7 +29,11 @@ type TradeInsert = Database["public"]["Tables"]["trades"]["Insert"];
 function ImportPage() {
   const navigate = useNavigate();
   const { data: accounts } = useSuspenseQuery(accountsQuery());
-  const [accountId, setAccountId] = useState(accounts[0]?.id ?? "");
+  const { activeId } = useActiveAccountId();
+  const [accountId, setAccountId] = useState(activeId ?? accounts[0]?.id ?? "");
+  useEffect(() => {
+    if (activeId && accounts.some(a => a.id === activeId)) setAccountId(activeId);
+  }, [activeId, accounts]);
   const [rows, setRows] = useState<Record<string, string>[]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
   const [mapping, setMapping] = useState<Record<string, string>>({});
