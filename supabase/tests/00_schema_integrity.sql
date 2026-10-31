@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(17);
+select plan(18);
 
 select has_table('public', 'trades', 'Trade history is available');
 select has_table('public', 'accounts', 'Trading accounts are available');
@@ -21,6 +21,10 @@ select ok(to_regprocedure('public.tradeos_reward_event(uuid,text,numeric,text)')
 select ok(to_regprocedure('public.claim_intelligence_jobs(integer)') is not null,'Queue worker RPC exists');
 select ok(to_regprocedure('public.tradeos_phase3_ready()') is not null,'Phase 3 migration applied');
 select ok(to_regprocedure('public.tradeos_phase4_ready()') is not null,'Phase 4 migration applied');
+
+select ok(EXISTS (
+  SELECT 1 FROM storage.buckets WHERE id='trade-screenshots' AND public=false
+),'Private trading screenshot bucket exists on fresh local install');
 
 select * from finish();
 rollback;
