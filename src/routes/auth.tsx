@@ -102,11 +102,11 @@ function AuthPage() {
           <form onSubmit={handleEmail} className="space-y-4">
             <div>
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 h-11" placeholder="you@trader.com" />
+              <Input id="email" type="email" required disabled={!hydrated} value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 h-11" placeholder="you@trader.com" />
             </div>
             <div>
               <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 h-11" placeholder="••••••••" />
+              <Input id="password" type="password" required disabled={!hydrated} minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 h-11" placeholder="••••••••" />
             </div>
             <Button type="submit" className="w-full h-11" disabled={loading || !hydrated}>
               {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
