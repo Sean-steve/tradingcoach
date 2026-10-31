@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatMoney, formatPct, pnlTone } from "@/lib/format";
+import { formatPct, pnlTone } from "@/lib/format";
+import { formatAccountMoney } from "@/lib/account-currency";
 import { PlusCircle, Search } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/trades/")({
@@ -90,7 +91,7 @@ function TradesList() {
                   <td className="px-4 py-3"><Badge variant="outline" className="uppercase text-[10px]">{t.direction}</Badge></td>
                   <td className="px-4 py-3 text-right number-mono text-muted-foreground">{t.risk_pct ? formatPct(Number(t.risk_pct)) : "—"}</td>
                   <td className="px-4 py-3 text-right number-mono text-muted-foreground">{t.realized_rr ?? t.planned_rr ?? "—"}</td>
-                  <td className={`px-4 py-3 text-right number-mono text-${pnlTone(Number(t.pnl))}`}>{formatMoney(Number(t.pnl), "USD", { sign: true })}</td>
+                  <td className={`px-4 py-3 text-right number-mono text-${pnlTone(Number(t.pnl))}`}>{formatAccountMoney(Number(t.pnl), account, { sign: true })}</td>
                   <td className="px-4 py-3">
                     <span className={`text-xs uppercase tracking-wider text-${pnlTone(Number(t.pnl))}`}>{t.result}</span>
                   </td>
