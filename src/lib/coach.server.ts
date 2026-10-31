@@ -28,7 +28,7 @@ export async function callGateway(system: string, user: string, json: boolean): 
     throw new Error("AI provider not configured. Offline deterministic coach remains available.");
   }
   let endpoint: URL;
-  try { endpoint = new URL(base.replace(/\\/$/, "") + "/chat/completions"); }
+  try { endpoint = new URL(base.replace(/\/$/, "") + "/chat/completions"); }
   catch { throw new Error("Invalid AI_API_BASE_URL"); }
   if (!["https:", "http:"].includes(endpoint.protocol)) throw new Error("Unsupported AI provider URL");
   // Never permit plaintext remote endpoints for sensitive trading and behavioral data.
