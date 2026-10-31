@@ -6,9 +6,11 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Both workflows launch the same local Supabase project/ports on CI runners.
+# A cross-workflow group prevents Docker port collisions during parallel pushes.
 concurrency:
-  group: "${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}"
-  cancel-in-progress: true
+  group: tradeos-local-supabase
+  cancel-in-progress: false
 
 permissions:
   contents: read
