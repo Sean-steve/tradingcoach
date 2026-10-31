@@ -19,7 +19,8 @@ import { Loader2, Upload as UploadIcon, X } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 import { evaluateTrigger, type InterventionLike, type TriggerContext } from "@/lib/interventions";
 import { useActiveAccountId } from "@/lib/active-account";
-import { isFoundationMigrationActive } from "@/lib/foundation-readiness";
+import { isFoundationMigrationActive, isPhase2Active } from "@/lib/foundation-readiness";
+import { binaryNetPnl, binaryBreakevenWinRate, type BinarySettlement } from "@/lib/binary-options";
 import { useServerFn } from "@tanstack/react-start";
 import { runIntelligence } from "@/lib/intelligence.functions";
 
@@ -54,6 +55,11 @@ function NewTrade() {
   const [overrides, setOverrides] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
     account_id: activeId ?? accounts[0]?.id ?? "",
+    contract_type: "spot" as "spot" | "binary",
+    binary_outcome: "win" as BinarySettlement,
+    expires_at: new Date(Date.now() + 5 * 60000).toISOString().slice(0,16),
+    payout_percent: "80",
+    refund_amount: "",
     strategy_id: "",
     asset: "",
     setup: "",
@@ -96,6 +102,17 @@ function NewTrade() {
   });
 
   const update = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm((f) => ({ ...f, [k]: v }));
+  const isBinary = form.contract_type === "binary";
+  const binaryPreview = (() => {
+    if (!isBinary || !form.stake || !form.payout_percent) return null;
+    try {
+      return binaryNetPnl({
+        stake: Number(form.stake), payoutPercent: Number(form.payout_percent),
+        fees: Number(form.fees || 0), settlement: form.binary_outcome,
+        refundAmount: form.refund_amount ? Number(form.refund_amount) : undefined,
+      });
+    } catch { return null; }
+  })();
 
   // Loss-lock computation for the currently selected account
   const selectedAcct = accounts.find((a) => a.id === form.account_id) ?? accounts[0];
@@ -186,18 +203,40 @@ function NewTrade() {
       const userId = userData.user?.id;
       if (!userId) throw new Error("Not signed in");
       const foundationActive = await isFoundationMigrationActive();
+      if (isBinary && !(await isPhase2Active())) throw new Error("Binary contracts require the Phase 2 database migration. Standard journaling remains available.");
       if (foundationActive && !activeManual) throw new Error("Publish your Trading Operating Manual before logging a new trade.");
 
       const enteredAt = new Date(form.entered_at);
       const exitedAt = form.exited_at ? new Date(form.exited_at) : null;
-      const duration = exitedAt ? Math.round((+exitedAt - +enteredAt) / 1000) : null;
-      const pnl = Number(form.pnl || 0) - Number(form.fees || 0);
-      if (form.result === "open" && pnl !== 0) throw new Error("Open trades cannot have realized P&L.");
-      const result: TradeInsert["result"] = form.result === "open" ? "open" : pnl > 0 ? "win" : pnl < 0 ? "loss" : "breakeven";
+      const expiresAt = isBinary ? new Date(form.expires_at) : null;
+      if (isBinary && (!expiresAt || !Number.isFinite(+expiresAt) || +expiresAt <= +enteredAt)) {
+        throw new Error("Binary option expiry must be later than entry time.");
+      }
+      const binaryPnl = isBinary ? binaryNetPnl({
+        stake: Number(form.stake), payoutPercent: Number(form.payout_percent),
+        fees: Number(form.fees || 0), settlement: form.binary_outcome,
+        refundAmount: form.refund_amount ? Number(form.refund_amount) : undefined,
+      }) : null;
+      const pnl = binaryPnl ?? (Number(form.pnl || 0) - Number(form.fees || 0));
+      const result: TradeInsert["result"] = isBinary && form.binary_outcome === "pending"
+        ? "open" : form.result === "open" && !isBinary
+          ? "open" : pnl > 0 ? "win" : pnl < 0 ? "loss" : "breakeven";
+      if (result === "open" && pnl !== 0) throw new Error("Open trades cannot have realized P&L.");
+      const actualExit = isBinary
+        ? (form.binary_outcome === "pending" ? null : expiresAt) : exitedAt;
+      const duration = isBinary && expiresAt ? Math.round((+expiresAt - +enteredAt) / 1000)
+        : actualExit ? Math.round((+actualExit - +enteredAt) / 1000) : null;
 
       const insertData: TradeInsert = {
         user_id: userId,
         account_id: form.account_id,
+        contract_type: form.contract_type,
+        ...(isBinary ? {
+          binary_outcome: form.binary_outcome,
+          payout_percent: Number(form.payout_percent),
+          expires_at: expiresAt!.toISOString(),
+          refund_amount: form.refund_amount ? Number(form.refund_amount) : null,
+        } : {}),
         strategy_id: form.strategy_id || null,
         // Pin the effective manual for future audits; historical imports may remain unpinned.
         tom_version_id: activeManual?.id ?? null,
@@ -206,7 +245,7 @@ function NewTrade() {
         direction: form.direction,
         session: sessionFromDate(enteredAt),
         entered_at: enteredAt.toISOString(),
-        exited_at: exitedAt?.toISOString() ?? null,
+        exited_at: actualExit?.toISOString() ?? null,
         entry_price: num(form.entry_price),
         exit_price: num(form.exit_price),
         stop_loss: num(form.stop_loss),
@@ -441,16 +480,40 @@ function NewTrade() {
       </Card>
 
       <Card className="glow-card p-6 border-border/40 space-y-4">
+        <h2 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Contract</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div><Label>Product type</Label><Select value={form.contract_type} onValueChange={(v) => update("contract_type", v as "spot" | "binary")}>
+            <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+            <SelectContent><SelectItem value="spot">Standard trade</SelectItem><SelectItem value="binary">Binary option</SelectItem></SelectContent>
+          </Select></div>
+          {isBinary && <>
+            <div><Label>Expiry *</Label><Input required type="datetime-local" value={form.expires_at} onChange={e => update("expires_at", e.target.value)} className="mt-1" /></div>
+            <div><Label>Payout on win (%) *</Label><Input required type="number" min="0" max="500" step="0.001" value={form.payout_percent} onChange={e => update("payout_percent", e.target.value)} className="mt-1" /></div>
+            <div><Label>Contract outcome</Label><Select value={form.binary_outcome} onValueChange={v => update("binary_outcome", v as BinarySettlement)}>
+              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value="pending">Pending</SelectItem><SelectItem value="win">Win</SelectItem><SelectItem value="loss">Loss</SelectItem><SelectItem value="push">Tie / push</SelectItem><SelectItem value="void">Void / cancelled</SelectItem></SelectContent>
+            </Select></div>
+            {(form.binary_outcome === "push" || form.binary_outcome === "void") && <div><Label>Stake refunded (blank = full stake)</Label><Input type="number" min="0" step="0.01" value={form.refund_amount} onChange={e => update("refund_amount", e.target.value)} className="mt-1" /></div>}
+          </>}
+        </div>
+        {isBinary && <p className="text-sm text-muted-foreground">
+          Computed net P&amp;L: <strong>{binaryPreview == null ? "Enter valid stake and payout" : binaryPreview.toFixed(2)}</strong>.
+          {Number(form.payout_percent) > 0 && <> No-fee break-even win rate: {binaryBreakevenWinRate(Number(form.payout_percent)).toFixed(2)}%.</>}
+          {" "}The database independently calculates final settlement; stake is risk capital, not revenue.
+        </p>}
+      </Card>
+
+      <Card className="glow-card p-6 border-border/40 space-y-4">
         <h2 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Execution</h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <Label>Entered at *</Label>
             <Input required type="datetime-local" value={form.entered_at} onChange={(e) => update("entered_at", e.target.value)} className="mt-1" />
           </div>
-          <div>
+          {!isBinary && <div>
             <Label>Exited at</Label>
             <Input type="datetime-local" value={form.exited_at} onChange={(e) => update("exited_at", e.target.value)} className="mt-1" />
-          </div>
+          </div>}
           <div>
             <Label>Entry</Label>
             <Input type="number" step="any" value={form.entry_price} onChange={(e) => update("entry_price", e.target.value)} className="mt-1" />
@@ -491,11 +554,11 @@ function NewTrade() {
             <Label>Fees</Label>
             <Input type="number" step="0.01" value={form.fees} onChange={(e) => update("fees", e.target.value)} className="mt-1" />
           </div>
-          <div>
+          {!isBinary && <div>
             <Label>P&L (gross) *</Label>
             <Input required type="number" step="0.01" value={form.pnl} onChange={(e) => update("pnl", e.target.value)} className="mt-1" placeholder="e.g. 125 or -80" />
-          </div>
-          <div>
+          </div>}
+          {!isBinary && <div>
             <Label>Result</Label>
             <Select value={form.result} onValueChange={(v) => update("result", v as typeof form.result)}>
               <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
@@ -506,7 +569,7 @@ function NewTrade() {
                 <SelectItem value="open">Still open</SelectItem>
               </SelectContent>
             </Select>
-          </div>
+          </div>}
         </div>
       </Card>
 

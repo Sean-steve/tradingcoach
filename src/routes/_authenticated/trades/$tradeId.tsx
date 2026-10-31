@@ -76,6 +76,20 @@ function TradeDetail() {
         <Stat label="Fees" value={formatMoney(Number(t.fees ?? 0))} />
       </Card>
 
+      {t.contract_type === "binary" && (
+        <Card className="glow-card border-border/40 p-6 space-y-3">
+          <h2 className="font-semibold">Binary-Options Contract</h2>
+          <p className="text-xs text-muted-foreground">Displayed P&L is the settled net amount calculated by the database, not total broker return.</p>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <Stat label="Stake" value={formatMoney(Number(t.stake ?? 0))} />
+            <Stat label="Win payout" value={t.payout_percent == null ? "—" : `${Number(t.payout_percent).toFixed(2)}%`} />
+            <Stat label="Expiry" value={t.expires_at ? new Date(t.expires_at).toLocaleString() : "—"} />
+            <Stat label="Settlement" value={t.binary_outcome ?? "—"} />
+            <Stat label="Stake refunded" value={t.refund_amount == null ? "—" : formatMoney(Number(t.refund_amount))} />
+          </div>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="glow-card border-border/40 p-6">
           <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Confidence</div>

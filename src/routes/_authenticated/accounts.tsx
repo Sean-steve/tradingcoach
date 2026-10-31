@@ -4,6 +4,7 @@ import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { accountsQuery, tradesQuery, profitAllocationsQuery, allocationRulesQuery } from "@/lib/queries";
 import { useActiveAccountId } from "@/lib/active-account";
+import { isPhase2Active } from "@/lib/foundation-readiness";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +36,22 @@ function AccountsPage() {
   const [newName, setNewName] = useState("");
   const [newType, setNewType] = useState<"personal" | "prop_firm" | "funded" | "demo">("personal");
   const [newBalance, setNewBalance] = useState("10000");
+  const [auditRows, setAuditRows] = useState<Array<{
+    account_id: string; account_name: string; starting_balance: number;
+    current_balance: number; trade_pnl: number; variance: number;
+  }> | null>(null);
+  const [auditBusy, setAuditBusy] = useState(false);
+  const loadBalanceAudit = async () => {
+    setAuditBusy(true);
+    try {
+      if (!(await isPhase2Active())) throw new Error("Activate Phase 2 migration before running financial reconciliation.");
+      const { data, error } = await supabase.rpc("tradeos_balance_variances");
+      if (error) throw error;
+      setAuditRows(data ?? []);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Balance audit unavailable");
+    } finally { setAuditBusy(false); }
+  };
 
   const perAccount = useMemo(() => {
     const m = new Map<string, { pnl: number; allocated: number; byBucket: Record<Bucket, number> }>();
@@ -116,6 +133,29 @@ function AccountsPage() {
           <div className="text-xs text-muted-foreground mt-1">Withdrawn/moved out of trading balance</div>
         </Card>
       </div>
+
+      <Card className="glow-card p-6 border-border/40 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-semibold">Financial Reconciliation (Read-only)</h2>
+            <p className="text-xs text-muted-foreground">Compare stored balances to opening capital plus closed-trade P&amp;L. Differences can result from earlier client-side updates, external funding, withdrawals or allocated funds; never auto-adjust historical balances.</p>
+          </div>
+          <Button variant="outline" disabled={auditBusy} onClick={loadBalanceAudit}>{auditBusy ? "Checking…" : "Verify balances"}</Button>
+        </div>
+        {auditRows && <div className="space-y-2">
+          {auditRows.map(row => (
+            <div key={row.account_id} className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs border border-border/40 rounded p-3">
+              <span className="font-semibold">{row.account_name}</span>
+              <span>Actual: {formatMoney(Number(row.current_balance))}</span>
+              <span>Trade-only projection: {formatMoney(Number(row.starting_balance) + Number(row.trade_pnl))}</span>
+              <span className={Math.abs(Number(row.variance)) > 0.01 ? "text-loss" : "text-profit"}>
+                Variance: {formatMoney(Number(row.variance))}
+              </span>
+            </div>
+          ))}
+          <p className="text-xs text-muted-foreground">Review discrepancies against broker statements, deposits, withdrawals and allocations. This screen does not write to balances.</p>
+        </div>}
+      </Card>
 
       {/* New account */}
       <Card className="glow-card p-6 border-border/40 space-y-4">
