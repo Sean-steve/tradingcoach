@@ -39,13 +39,17 @@ test("Phase D: isolated local Supabase and no parallel binary contract migration
    "Alternate Phase 2 schema is incompatible; preserve only in reference branch");
 });
 
-test("Phase D: main push and PR run full certification checks",()=>{
- for(const path of [".github/workflows/ci.yml",".github/workflows/local-stack.yml",".github/workflows/phase-c-local-certification.yml"]){
+test("Phase E: main push and PR run full certification without competing Supabase stacks",()=>{
+ for(const path of [".github/workflows/ci.yml",".github/workflows/phase-c-local-certification.yml",".github/workflows/production-container.yml"]){
    const yml=read(path);
    assert.match(yml,/pull_request:/,path+" missing PR checks");
    assert.match(yml,/push:[\s\S]*?branches:\s*\[[^\]]*"main"/,path+" missing main checks");
-   assert.match(yml,/concurrency:/,path+" missing superseded-run cancellation");
+   assert.match(yml,/concurrency:/,path+" missing workflow concurrency");
  }
+ const focused=read(".github/workflows/local-stack.yml");
+ assert.match(focused,/workflow_dispatch:/,"Standalone Supabase smoke must remain manually runnable");
+ assert.doesNotMatch(focused,/\n\s+pull_request:|\n\s+push:/,"Manual DB suite must not race full-stack automatic CI");
+ assert.match(read(".github/workflows/phase-c-local-certification.yml"),/tradeos-local-supabase/);
 });
 
 test("Phase D: previous user experiences and test suite retained",()=>{
