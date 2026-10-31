@@ -63,7 +63,8 @@ export async function verifyDeployment(env, fetcher = globalThis.fetch) {
   const ready = await probe(fetcher, base, "/api/ready");
   requireStatus(ready, 200, "/api/ready");
   const readyData = await json(ready, "/api/ready");
-  if (readyData.status !== "ready" || readyData.database !== "reachable")
+  if (readyData.status !== "ready" || readyData.database !== "reachable" ||
+      readyData.financial_schema !== "phase-f1")
     throw Error("Database not verified ready");
 
   const anonymousRead = await probe(fetcher, base, "/api/internal/intelligence");
@@ -79,7 +80,7 @@ export async function verifyDeployment(env, fetcher = globalThis.fetch) {
     throw Error("Queue health is degraded or malformed");
 
   return { status: "verified", environment: expectedEnvironment, release: expectedSha,
-    checks: ["release identity", "database ready", "worker authentication", "queue health"] };
+    checks: ["release identity", "financial schema ready", "worker authentication", "queue health"] };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

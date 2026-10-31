@@ -237,13 +237,10 @@ try {
   await page.getByText("NZDJPY",{exact:true}).first().waitFor({timeout:10000});
   assert.equal(await page.getByText("BTCUSD",{exact:true}).count(),0,"Trade Journal leaked first account's records");
  });
- // Uncaught browser exceptions always fail. A single narrowly scoped React
- // warning is tracked at issue #9; it does not indicate an unhandled exception.
- const nonBlockingWarning = "Can't perform a React state update on a component that hasn't mounted yet.";
- const acknowledged = consoleErrors.filter(x=>x.text.startsWith(nonBlockingWarning));
- const unexpected = consoleErrors.filter(x=>!x.text.startsWith(nonBlockingWarning));
- for(const warning of acknowledged) console.warn("PHASE C KNOWN REACT WARNING (issue #9)",JSON.stringify(warning));
- assert.equal(unexpected.length,0,"Unexpected console errors: "+JSON.stringify(unexpected.slice(0,5)));
+ // Strict by default: no acknowledged React warning or other console.error.
+ // Console source locations and route context are preserved for diagnosis.
+ assert.equal(consoleErrors.length,0,
+   "Browser console errors, including pre-mount React updates: "+JSON.stringify(consoleErrors.slice(0,8)));
  assert.equal(pageErrors.length,0,"Unhandled browser exceptions: "+pageErrors.slice(0,5).join(" | "));
  console.log("PHASE C BROWSER CERTIFICATION PASS: "+stepNumber+" assertions including "+paths.length+" screens.");
 } finally {

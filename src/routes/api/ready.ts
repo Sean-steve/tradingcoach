@@ -8,9 +8,16 @@ export const Route=createFileRoute("/api/ready")({
       return Response.json({status:"not_ready",database:"not_configured"},{status:503,headers});
     try {
       const { supabaseAdmin }=await import("@/integrations/supabase/client.server");
-      const {error}=await supabaseAdmin.from("accounts").select("id",{head:true,count:"estimated"}).limit(1);
-      if(error)return Response.json({status:"not_ready",database:"unavailable"},{status:503,headers});
-      return Response.json({status:"ready",database:"reachable"},{headers});
+      // Mere connectivity is not release readiness. Verify that the approved
+      // financial ledger schema is available without reading any user records.
+      const checks = await Promise.all([
+        supabaseAdmin.from("accounts").select("id",{head:true,count:"estimated"}).limit(1),
+        supabaseAdmin.from("account_cash_movements").select("id",{head:true,count:"estimated"}).limit(1),
+        supabaseAdmin.from("trade_import_runs").select("id",{head:true,count:"estimated"}).limit(1),
+      ]);
+      if (checks.some(check=>check.error))
+        return Response.json({status:"not_ready",database:"unavailable",financial_schema:"unverified"},{status:503,headers});
+      return Response.json({status:"ready",database:"reachable",financial_schema:"phase-f1"},{headers});
     }catch{
       return Response.json({status:"not_ready",database:"unavailable"},{status:503,headers});
     }

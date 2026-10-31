@@ -20,7 +20,7 @@ function fakeProbes(overrides = {}) {
     const key = path + ":" + method + ":" + (authenticated ? "auth" : "anon");
     const defaults = {
       "/api/health:GET:anon": jsonResponse(200, {status:"ok",service:"trade-os",release:sha,environment:"staging"}),
-      "/api/ready:GET:anon": jsonResponse(200, {status:"ready",database:"reachable"}),
+      "/api/ready:GET:anon": jsonResponse(200, {status:"ready",database:"reachable",financial_schema:"phase-f1"}),
       "/api/internal/intelligence:GET:anon": jsonResponse(401, {error:"Unauthorized"}),
       "/api/internal/intelligence:POST:anon": jsonResponse(401, {error:"Unauthorized"}),
       "/api/internal/intelligence:GET:auth": jsonResponse(200, {status:"ok",queue:{pending:0,running:0,succeeded:1,failed:0,overdue:0}}),
@@ -63,4 +63,9 @@ test("Phase F: public worker access or degraded queue blocks certification", asy
 test("Phase F: missing worker secret cannot produce false green", async () => {
   const {fetcher} = fakeProbes();
   await assert.rejects(verifyDeployment({...config,TRADE_OS_CRON_SECRET:""},fetcher),/secret/);
+});
+
+test("Phase F.2: staging fails closed when financial migrations are absent",async()=>{
+  const {fetcher} = fakeProbes({"/api/ready:GET:anon":jsonResponse(200,{status:"ready",database:"reachable"})});
+  await assert.rejects(verifyDeployment(config,fetcher),/Database not verified ready/);
 });

@@ -29,9 +29,13 @@ function AuthPage() {
   const { next } = useSearch({ from: "/auth" });
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: (next as "/dashboard") ?? "/dashboard" });
+    let active = true;
+    // Do not navigate from a resolved session promise after the sign-in view
+    // has unmounted during a redirect or concurrent route transition.
+    void supabase.auth.getSession().then(({ data }) => {
+      if (active && data.session) void navigate({ to: (next as "/dashboard") ?? "/dashboard" });
     });
+    return () => { active = false; };
   }, [navigate, next]);
 
   const handleEmail = async (e: React.FormEvent) => {
