@@ -1,8 +1,8 @@
-// Server-only: measure whether active interventions are actually working.
-
+// Server-only outcome evaluation for active interventions.
+// Evidence remains observational; an improved rate is not proof of causation.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
-import { measureOutcome, statusFromOutcome } from "@/lib/interventions";
+import { measureBehavior, classifyInterventionFamily, interventionStatus } from "@/lib/intervention-measurement";
 
 type DB = SupabaseClient<Database>;
 
@@ -13,47 +13,56 @@ export interface RefreshResult {
   succeeded: number;
 }
 
-export async function refreshInterventionOutcomes(supabase: DB, userId: string, accountId: string): Promise<RefreshResult> {
-  const [{ data: ivs }, { data: trades }, { data: events }] = await Promise.all([
-    supabase.from("interventions").select("*").eq("user_id", userId).eq("account_id", accountId).in("status", ["active", "failed"]),
-    supabase.from("trades").select("id,entered_at").eq("account_id", accountId).order("entered_at"),
+export async function refreshInterventionOutcomes(
+  supabase: DB, userId: string, accountId: string,
+): Promise<RefreshResult> {
+  const [owned, interventions, tradesResponse, eventsResponse] = await Promise.all([
+    supabase.from("accounts").select("id").eq("id", accountId).eq("user_id", userId).maybeSingle(),
+    supabase.from("interventions").select("*").eq("user_id", userId).eq("account_id", accountId).in("status", ["active","failed"]),
+    supabase.from("trades").select("id,entered_at").eq("account_id", accountId).eq("user_id", userId).order("entered_at"),
     supabase.from("behavior_events").select("trade_id,code").eq("user_id", userId).eq("account_id", accountId),
   ]);
+  if (owned.error || !owned.data) throw new Error("Trading account not found");
+  if (interventions.error) throw interventions.error;
+  if (tradesResponse.error) throw tradesResponse.error;
+  if (eventsResponse.error) throw eventsResponse.error;
 
   const eventsByTrade = new Map<string, string[]>();
-  for (const e of events ?? []) {
-    if (!e.trade_id) continue;
-    const list = eventsByTrade.get(e.trade_id) ?? [];
-    if (!list.includes(e.code)) list.push(e.code);
-    eventsByTrade.set(e.trade_id, list);
+  for (const event of eventsResponse.data ?? []) {
+    if (!event.trade_id) continue;
+    const codes = eventsByTrade.get(event.trade_id) ?? [];
+    if (!codes.includes(event.code)) codes.push(event.code);
+    eventsByTrade.set(event.trade_id, codes);
   }
 
-  let improving = 0, regressing = 0, succeeded = 0, evaluated = 0;
+  const withTargets = (interventions.data ?? []).filter(iv => !!iv.target_behavior_code);
+  const preliminary = withTargets.map(iv => measureBehavior(
+    iv.target_behavior_code!, iv.starts_at, tradesResponse.data ?? [], eventsByTrade,
+  ));
+  const evaluated = classifyInterventionFamily(preliminary);
+  let improving = 0, regressing = 0, succeeded = 0;
 
-  for (const iv of ivs ?? []) {
-    if (!iv.target_behavior_code) continue;
-    const o = measureOutcome(iv.target_behavior_code, iv.starts_at, trades ?? [], eventsByTrade);
-    const status = statusFromOutcome(o);
-    evaluated++;
-    if (o.trend === "improving") improving++;
-    if (o.trend === "regressing") regressing++;
+  for (const [index, intervention] of withTargets.entries()) {
+    const result = evaluated[index];
+    const status = interventionStatus(result);
+    if (result.trend === "improving") improving++;
+    if (result.trend === "regressing") regressing++;
     if (status === "succeeded") succeeded++;
-
-    const { error } = await supabase
-      .from("interventions")
-      .update({
-        baseline_rate: o.baseline_rate,
-        observed_rate: o.observed_rate,
-        target_rate: o.target_rate,
-        sample_size: o.sample_size,
-        confidence: o.confidence,
-        trend: o.trend,
-        status,
-        resolved_at: status === "succeeded" ? new Date().toISOString() : null,
-      })
-      .eq("id", iv.id);
+    const { error } = await supabase.from("interventions").update({
+      baseline_rate: result.baseline_rate,
+      observed_rate: result.observed_rate,
+      target_rate: result.target_rate,
+      baseline_n: result.before_n,
+      observed_n: result.observed_n,
+      win_rate_effect_points: result.delta_points,
+      adjusted_q: result.adjusted_q,
+      sample_size: result.sample_size,
+      confidence: result.confidence,
+      trend: result.trend,
+      status,
+      resolved_at: status === "succeeded" ? new Date().toISOString() : null,
+    }).eq("id", intervention.id).eq("user_id", userId).eq("account_id", accountId);
     if (error) throw error;
   }
-
-  return { evaluated, improving, regressing, succeeded };
+  return { evaluated: withTargets.length, improving, regressing, succeeded };
 }

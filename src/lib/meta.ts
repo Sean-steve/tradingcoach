@@ -18,6 +18,8 @@ export interface IvLike {
   baseline_rate: number | string | null;
   observed_rate: number | string | null;
   sample_size: number;
+  baseline_n?: number;
+  adjusted_q?: number | string | null;
 }
 
 export interface CheckLike {
@@ -58,8 +60,12 @@ export function scoreAdvice(recs: RecLike[], interventions: IvLike[], checks: Ch
     const respected_rate = ivChecks.length ? Math.round((respected / ivChecks.length) * 100) : null;
 
     let worked: boolean | null = null;
-    if (iv && iv.sample_size >= 8 && iv.trend !== "insufficient_evidence") {
-      worked = iv.status === "succeeded" || iv.trend === "improving";
+    // Accepted/rejected are preference signals, NOT proof of effectiveness.
+    // An improvement/regression is only graded after both sample windows pass
+    // the evidence gate and the family-adjusted q-value clears 0.05.
+    if (iv && iv.sample_size >= 20 && (iv.baseline_n ?? 0) >= 20
+      && Number(iv.adjusted_q ?? 1) <= 0.05) {
+      if (iv.trend === "improving") worked = true;
       if (iv.trend === "regressing") worked = false;
     }
 
@@ -161,7 +167,7 @@ export function coachScorecard(outcomes: AdviceOutcomeDraft[]): Scorecard {
   const statement =
     measured.length < 3
       ? `Only ${measured.length} recommendation${measured.length === 1 ? "" : "s"} has been measured long enough to grade, so the system cannot yet claim an accuracy figure.`
-      : `Of ${measured.length} measured recommendations, ${worked} moved the targeted behavior and ${backfired} did not — ${accuracy}% accuracy so far.`;
+      : `Of ${measured.length} evidence-qualified recommendations, ${worked} were associated with improvement and ${backfired} with worsening. This is observational evidence, not causal proof.`;
 
   return {
     total,

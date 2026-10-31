@@ -315,6 +315,11 @@ export async function runIntelligencePipeline(supabase: DB, userId: string, acco
     .eq("account_id", accountId);
   const prior = new Map((existingRecs ?? []).map((r) => [r.recommendation_key, r]));
 
+  // Measure new behavioral evidence BEFORE grading prior advice.
+  // Recommendations cannot learn from stale snapshots.
+  const { refreshInterventionOutcomes } = await import("@/lib/interventions.server");
+  const ivOutcome = await refreshInterventionOutcomes(supabase, userId, accountId);
+
   // meta-learning: grade the advice already given, then re-weight priority
   const [{ data: ivRows }, { data: checkRows }] = await Promise.all([
     supabase.from("interventions").select("*").eq("user_id", userId).eq("account_id", accountId),
@@ -418,9 +423,7 @@ export async function runIntelligencePipeline(supabase: DB, userId: string, acco
     if (error) throw error;
   }
 
-  // ---------- 5. Intervention outcome measurement ----------
-  const { refreshInterventionOutcomes } = await import("@/lib/interventions.server");
-  const ivOutcome = await refreshInterventionOutcomes(supabase, userId, accountId);
+  // ---------- 5. Latest intervention outcomes were measured above ----------
 
   // ---------- 6. Memory timeline (milestones + diff entries, deduped) ----------
   const milestones = computeMilestones(
@@ -484,7 +487,7 @@ export async function loadTruthContext(supabase: DB, userId: string, accountId: 
   const [{ data: insights }, { data: causes }, { data: recs }, { data: toms }, { data: memory }, { data: gEdges }, { data: outcomes }] = await Promise.all([
     supabase.from("insights").select("*").eq("user_id", userId).eq("account_id", accountId).eq("status", "validated").order("impact_estimate", { ascending: true }).limit(15),
     supabase.from("root_causes").select("*").eq("user_id", userId).eq("account_id", accountId).eq("is_current", true),
-    supabase.from("recommendations").select("*").eq("user_id", userId).eq("account_id", accountId).eq("is_current", true).eq("status", "active").order("priority"),
+    supabase.from("recommendations").select("*").eq("user_id", userId).eq("account_id", accountId).eq("is_current", true).in("status", ["active", "accepted"]).order("priority"),
     supabase.from("tom_versions").select("*").eq("user_id", userId).eq("is_active", true).limit(1),
     supabase.from("memory_entries").select("kind,title,body,occurred_at").eq("user_id", userId).eq("account_id", accountId).order("occurred_at", { ascending: false }).limit(12),
     supabase.from("graph_edges").select("source_key,target_key,relation,weight,sample_size,confidence,impact_estimate,detail").eq("user_id", userId).eq("account_id", accountId).order("impact_estimate", { ascending: true }).limit(10),
@@ -515,13 +518,14 @@ export async function loadTruthContext(supabase: DB, userId: string, accountId: 
       category: i.category,
     })),
     root_causes: (causes ?? []).map((c) => ({ title: c.title, explanation: c.explanation, confidence: Number(c.confidence) })),
-    open_recommendations: (recs ?? []).map((r) => ({ priority: r.priority, title: r.title, action: r.action })),
+    open_recommendations: (recs ?? []).map((r) => ({ priority: r.priority, title: r.title, action: r.action, state: r.status })),
+
     memory_timeline: (memory ?? []).map((m) => ({ kind: m.kind, title: m.title, when: m.occurred_at.slice(0, 10) })),
     graph_damage_edges: (gEdges ?? [])
       .filter((e) => e.relation === "hurts")
       .slice(0, 5)
       .map((e) => ({ from: e.source_key, to: e.target_key, sample_size: e.sample_size, confidence: Number(e.confidence), impact: Number(e.impact_estimate ?? 0) })),
-    advice_history: (outcomes ?? []).map((o) => ({ type: o.advice_type, accepted: o.accepted, dismissed: o.dismissed, respected_rate: o.respected_rate, worked: o.worked })),
+    advice_history: (outcomes ?? []).map((o) => ({ type: o.advice_type, accepted: o.accepted, dismissed: o.dismissed, respected_rate: o.respected_rate, observed_improvement: o.worked, evidence_is_observational: true })),
   };
 }
 

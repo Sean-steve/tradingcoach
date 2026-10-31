@@ -3,7 +3,8 @@
 // whether that guardrail fires for the trade being logged, and measures whether
 // the targeted behavior actually improved after the intervention started.
 
-import { proportionConfidence } from "@/lib/truth";
+export { measureBehavior as measureOutcome, interventionStatus as statusFromOutcome } from "./intervention-measurement.ts";
+export type { OutcomeEvidence as OutcomeMeasure } from "./intervention-measurement.ts";
 
 export type InterventionTrigger =
   | "loss_streak"
@@ -48,6 +49,7 @@ export interface TriggerContext {
   riskPct: number | null;
   tradesToday: number;
   session: string | null;
+  recentBehaviorCodes?: string[];
 }
 
 export interface TriggerResult {
@@ -92,10 +94,18 @@ export function evaluateTrigger(iv: InterventionLike, ctx: TriggerContext): Trig
         ? { triggered: true, reason: `${ctx.session} session is flagged` }
         : { triggered: false, reason: "session not flagged" };
     }
-    case "behavior_code":
+    case "behavior_code": {
+      // A behavior trigger must be observed, not fabricated from the absence
+      // of context. Callers provide recent canonical behavior codes.
+      const codes = ctx.recentBehaviorCodes ?? [];
+      return iv.target_behavior_code && codes.includes(iv.target_behavior_code)
+        ? { triggered: true, reason: "recent " + iv.target_behavior_code + " event" }
+        : { triggered: false, reason: "no matching recent behavior event" };
+    }
     case "always":
+      return { triggered: true, reason: "always-active checklist guardrail" };
     default:
-      return { triggered: true, reason: "always active" };
+      return { triggered: false, reason: "unknown trigger — no inferred violation" };
   }
 }
 
@@ -146,65 +156,6 @@ export function draftFromRecommendation(rec: {
   if (has("plan", "checklist"))
     return { ...base, trigger_type: "always", trigger_config: {}, hard_block: false, target_behavior_code: "checklist_skipped" };
   return { ...base, trigger_type: "always", trigger_config: {}, hard_block: false, target_behavior_code: null };
-}
-
-export interface OutcomeMeasure {
-  baseline_rate: number;
-  observed_rate: number;
-  target_rate: number;
-  sample_size: number;
-  confidence: number;
-  trend: InterventionTrend;
-}
-
-const MIN_AFTER = 8;
-
-/**
- * Did the targeted behavior actually get rarer after the intervention started?
- * Rates are per-trade occurrence percentages; the trend is only asserted once the
- * post-intervention sample clears the minimum-evidence gate.
- */
-export function measureOutcome(
-  behaviorCode: string,
-  startedAt: string,
-  trades: { id: string; entered_at: string }[],
-  eventsByTrade: Map<string, string[]>,
-): OutcomeMeasure {
-  const start = +new Date(startedAt);
-  let beforeN = 0, beforeX = 0, afterN = 0, afterX = 0;
-  for (const t of trades) {
-    const hit = (eventsByTrade.get(t.id) ?? []).includes(behaviorCode) ? 1 : 0;
-    if (+new Date(t.entered_at) < start) { beforeN++; beforeX += hit; }
-    else { afterN++; afterX += hit; }
-  }
-  const baseline = beforeN ? (beforeX / beforeN) * 100 : 0;
-  const observed = afterN ? (afterX / afterN) * 100 : 0;
-  const target = Math.max(0, Math.round(baseline * 0.5));
-  const confidence = beforeN && afterN ? proportionConfidence(afterX, afterN, beforeX, beforeN) : 0;
-
-  let trend: InterventionTrend = "insufficient_evidence";
-  if (afterN >= MIN_AFTER && beforeN >= MIN_AFTER) {
-    const delta = observed - baseline;
-    if (delta <= -5 && confidence >= 70) trend = "improving";
-    else if (delta >= 5 && confidence >= 70) trend = "regressing";
-    else trend = "flat";
-  }
-
-  return {
-    baseline_rate: round1(baseline),
-    observed_rate: round1(observed),
-    target_rate: target,
-    sample_size: afterN,
-    confidence: Math.round(confidence),
-    trend,
-  };
-}
-
-/** An intervention graduates once the behavior is at or below target with evidence. */
-export function statusFromOutcome(o: OutcomeMeasure): "active" | "succeeded" | "failed" {
-  if (o.trend === "improving" && o.observed_rate <= o.target_rate) return "succeeded";
-  if (o.trend === "regressing") return "failed";
-  return "active";
 }
 
 export function adherenceRate(checks: { triggered: boolean; outcome: string }[]): { fired: number; respected: number; rate: number } {

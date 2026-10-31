@@ -19,3 +19,11 @@ export async function isPhase2Active(): Promise<boolean> {
   if (error.code === "PGRST202" || error.code === "42883") return false;
   throw new Error("Unable to verify binary-contract database readiness: " + error.message);
 }
+
+/** Phase 3 protocol capability, allowing independent database-first rollout. */
+export async function isPhase3Active(): Promise<boolean> {
+  const { data, error } = await supabase.rpc("tradeos_phase3_ready");
+  if (!error) return data === true;
+  if (error.code === "PGRST202" || error.code === "42883") return false;
+  throw new Error("Unable to verify coaching database readiness: " + error.message);
+}

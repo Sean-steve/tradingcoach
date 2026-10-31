@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { insightsQuery, recommendationsQuery, rootCausesQuery, behaviorEventsQuery } from "@/lib/queries";
 import { runIntelligence } from "@/lib/intelligence.functions";
 import { useActiveAccountId } from "@/lib/active-account";
+import { isPhase3Active } from "@/lib/foundation-readiness";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -38,6 +39,18 @@ function Insights() {
   const { data: causes } = useSuspenseQuery(rootCausesQuery(activeId ?? undefined));
   const { data: recs } = useSuspenseQuery(recommendationsQuery(activeId ?? undefined));
   const { data: events } = useSuspenseQuery(behaviorEventsQuery(activeId ?? undefined));
+  const { data: actions = [] } = useQuery({
+    queryKey: ["recommendation_actions", activeId ?? "all"],
+    queryFn: async () => {
+      if (!(await isPhase3Active())) return [];
+      let q = supabase.from("recommendation_actions").select("*")
+        .order("created_at", { ascending: false }).limit(20);
+      if (activeId) q = q.eq("account_id", activeId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
 
   const run = useServerFn(runIntelligence);
   const mutation = useMutation({
@@ -55,16 +68,37 @@ function Insights() {
   const validated = insights.filter((i) => i.status === "validated");
   const suppressed = insights.filter((i) => i.status !== "validated");
   const active = recs.filter((r) => r.status === "active");
+  const accepted = recs.filter((r) => r.status === "accepted");
 
   const codeCounts = new Map<string, number>();
   for (const e of events) codeCounts.set(e.code, (codeCounts.get(e.code) ?? 0) + 1);
   const topBehaviors = [...codeCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
 
   const setStatus = async (id: string, status: "accepted" | "dismissed" | "completed") => {
-    const { error } = await supabase.from("recommendations").update({ status, resolved_at: new Date().toISOString() }).eq("id", id);
-    if (error) return toast.error(error.message);
-    toast.success(`Marked ${status}`);
-    qc.invalidateQueries({ queryKey: ["recommendations"] });
+    try {
+      const enabled = await isPhase3Active();
+      const note = status === "dismissed"
+        ? window.prompt("Optional: why is this recommendation not useful?") : null;
+      if (status === "dismissed" && note === null) return;
+      if (enabled) {
+        const action = status === "accepted" ? "accept" : status === "dismissed" ? "dismiss" : "complete";
+        const { error } = await supabase.rpc("tradeos_recommendation_action", {
+          p_recommendation: id, p_action: action, p_note: note ?? null, p_guardrail: null,
+        });
+        if (error) throw error;
+      } else {
+        // Existing experience stays usable until Phase 3 schema activation.
+        const { error } = await supabase.from("recommendations")
+          .update({ status, resolved_at: status === "accepted" ? null : new Date().toISOString() })
+          .eq("id", id);
+        if (error) throw error;
+      }
+      toast.success(`Recommendation ${status}`);
+      qc.invalidateQueries({ queryKey: ["recommendations"] });
+      qc.invalidateQueries({ queryKey: ["recommendation_actions"] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Recommendation action failed");
+    }
   };
 
   return (
@@ -74,8 +108,8 @@ function Insights() {
           <div className="text-xs uppercase tracking-wider text-muted-foreground">Truth Layer</div>
           <h1 className="text-3xl font-bold tracking-tight mt-1">Validated insights</h1>
           <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-            Behavior events feed the statistical engine; only claims that clear the minimum-evidence gate
-            (sample size, 80% confidence, 5-point effect) become validated. Everything else is held back.
+            Behavior events feed the statistical engine. Claims require adequate samples, a meaningful effect and a
+            corrected statistical evidence threshold. Patterns that do not clear these checks stay exploratory.
           </p>
         </div>
         <Button onClick={() => mutation.mutate()} disabled={mutation.isPending} className="gap-2">
@@ -114,6 +148,42 @@ function Insights() {
                     </div>
                   </div>
                 </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {accepted.length > 0 && (
+        <Card className="glow-card p-6 border-border/40">
+          <h2 className="font-semibold mb-2">Your active coaching commitments</h2>
+          <p className="text-xs text-muted-foreground mb-4">Accepted recommendations remain visible while you practice them. Mark complete only after reviewing evidence in Guardrails.</p>
+          <div className="space-y-2">
+            {accepted.map(rec => (
+              <div key={rec.id} className="flex gap-3 items-center justify-between border border-border/50 rounded p-3">
+                <div><p className="font-medium text-sm">{rec.title}</p><p className="text-xs text-muted-foreground">{rec.action}</p></div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => setStatus(rec.id, "completed")}>Complete</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setStatus(rec.id, "dismissed")}>Dismiss</Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {actions.length > 0 && (
+        <Card className="glow-card p-6 border-border/40">
+          <h2 className="font-semibold mb-2">Coaching Action History</h2>
+          <p className="text-xs text-muted-foreground mb-3">Recorded recommendation decisions, including activation and explicit completion.</p>
+          <div className="space-y-2">
+            {actions.map(action => (
+              <div key={action.id} className="border-b border-border/40 pb-2 text-sm flex gap-3 justify-between">
+                <div><span className="font-medium capitalize">{action.action}</span>
+                  <span className="text-muted-foreground"> · {action.previous_status} → {action.new_status}</span>
+                  {action.note && <p className="text-xs text-muted-foreground">{action.note}</p>}
+                </div>
+                <time className="text-xs text-muted-foreground shrink-0">{new Date(action.created_at).toLocaleString()}</time>
               </div>
             ))}
           </div>
