@@ -177,7 +177,7 @@ Rules:
       findings: parsed.findings ?? [],
       recommendations: parsed.recommendations ?? [],
       metrics: { ...summaryStats, evidence_count: truth.validated_insights.length } as never,
-      model: MODEL,
+      model: aiProviderConfigured() ? MODEL : "offline-deterministic",
     })
     .select()
     .single();
