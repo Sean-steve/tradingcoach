@@ -141,6 +141,24 @@ assert.equal(Number(negativeScore.process_score),92);
 assert.equal(tradeWithManual.result,"loss");
 pass("decision process quality is independent of realized profit");
 
+const image=Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/Sc9u7QAAAABJRU5ErkJggg==","base64");
+const screenshotPath=uidA+"/phase-c/"+runId+".png";
+const up=await a.storage.from("trade-screenshots").upload(screenshotPath,image,{
+  contentType:"image/png",upsert:false,
+});
+if(up.error)throw Error("Local screenshot upload failed: "+up.error.message);
+const got=await a.storage.from("trade-screenshots").download(screenshotPath);
+if(got.error)throw Error("Screenshot read failed: "+got.error.message);
+const unauthorized=await b.storage.from("trade-screenshots").download(screenshotPath);
+assert.ok(unauthorized.error,"Foreign account must not download trading screenshots");
+const meta=expectOk(await a.from("trade_screenshots").insert({
+  trade_id:tradeWithManual.id,user_id:uidA,
+  storage_path:screenshotPath,kind:"before"
+}).select().single(),"Persist screenshot metadata");
+const foreignMeta=expectOk(await b.from("trade_screenshots").select("id").eq("id",meta.id),"Foreign screenshot metadata read");
+assert.equal(foreignMeta.length,0);
+pass("private screenshot upload, authorized retrieval and cross-user denial");
+
 const insight = expectOk(await admin.from("insights").insert({
  user_id:uidA,account_id:accA.id,
  insight_key:"phase-c-"+runId+"-validated",
