@@ -17,7 +17,8 @@
     "local:env": "bash scripts/local/env.sh",
     "local:reset": "bash scripts/local/reset.sh",
     "local:stop": "supabase stop",
-    "local:verify": "bash scripts/local/verify.sh"
+    "local:verify": "bash scripts/local/verify.sh",
+    "local:dev": "bash scripts/local/dev.sh"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
