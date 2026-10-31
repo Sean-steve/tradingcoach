@@ -15,7 +15,7 @@ Verify the independent TRADE OS application and all previous Phase 1–4 changes
 | Service/API | `node scripts/local/certify-api.mjs` | Two users, account ownership, journal accounting, repeated financial corrections, atomic CSV imports, intelligence queue, TOM pinning, decision quality, audited recommendation actions, idempotent guardrails, goals, rewards and final P&L-to-account reconciliation |
 | Browser | `node scripts/local/certify-browser.mjs` | Auth, protected routes, all 28 main screens, real trade logging, CSV import/dedup, goal and reward creation, offline coach persistence, selected-account trade isolation |
 
-The custom browser runner uses **pinned temporary Playwright 1.56.1** and headless Chromium in CI. It tests the actual backend—not route intercepts, mocked API responses or static screenshots.
+The custom browser runner uses **pinned temporary Playwright 1.64.1** and headless Chromium in CI. It tests the actual backend—not route intercepts, mocked API responses or static screenshots.
 
 ## Verification on a developer laptop
 
