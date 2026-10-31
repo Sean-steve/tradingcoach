@@ -16,7 +16,7 @@
     "local:start": "bash scripts/local/start.sh",
     "local:env": "bash scripts/local/env.sh",
     "local:reset": "bash scripts/local/reset.sh",
-    "local:stop": "supabase stop",
+    "local:stop": "bash scripts/local/supabase.sh stop",
     "local:verify": "bash scripts/local/verify.sh",
     "local:dev": "bash scripts/local/dev.sh"
   },
