@@ -105,3 +105,21 @@ The production verification gate additionally refuses to pass while issues #8 or
 and requires successful same-SHA foundation, database/browser, container and staging checks.
 
 See [Phase F infrastructure and operator activation](docs/development/PHASE_F_STAGING_INFRASTRUCTURE_ACTIVATION.md).
+
+## Phase F.1 — cash correctness and isolated staging handoff
+
+Phase F.1 adds account-currency segregation, transactional/idempotent manually recorded
+deposits/withdrawals, a linked accounting-event audit, import-run provenance and a
+read-only reconciliation of booked balance versus opening capital + realized P&L +
+net recorded cash. Profit allocations are earmarks, **not** cash withdrawals.
+Legacy currency is explicitly marked unreviewed rather than silently backfilled,
+and no FX conversion or verified broker transfers are implied.
+
+- **Migration:** `supabase/migrations/20261031190000_phase_f1_financial_reconciliation.sql`
+- **Local finance certification:** `node scripts/local/certify-finance.mjs`, only with
+  local Supabase credentials and an enforced localhost target.
+- **Staging config check:** `TRADE_OS_ENV_FILE=.env.staging bash scripts/ops/staging-preflight.sh`
+- **Operations:** [Phase F.1 runbook](docs/development/PHASE_F1_FINANCIAL_STAGING.md)
+
+This work does not create a remote database, apply remote migrations, configure
+private GitHub environment secrets or activate production.

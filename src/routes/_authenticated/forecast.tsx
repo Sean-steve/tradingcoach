@@ -11,7 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { StatCard } from "@/components/stat-card";
-import { formatMoney, formatPct } from "@/lib/format";
+import { formatPct } from "@/lib/format";
+import { formatAccountMoney } from "@/lib/account-currency";
 import { Area, AreaChart, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { LineChart as LineIcon } from "lucide-react";
 
@@ -58,7 +59,7 @@ function ForecastPage() {
     <div className="p-8 max-w-6xl mx-auto space-y-6">
       <header>
         <h1 className="text-3xl font-bold tracking-tight">Forecast</h1>
-        <p className="text-muted-foreground">Monte Carlo projection of your equity over the chosen horizon, sampled from your actual trade P&L distribution.</p>
+        <p className="text-muted-foreground">Monte Carlo projection of your equity over the chosen horizon, sampled from your selected account’s trade P&L distribution. Cash deposits and withdrawals are excluded from simulated equity paths.</p>
       </header>
 
       <Card className="glow-card p-6 border-border/40 space-y-4">
@@ -66,7 +67,7 @@ function ForecastPage() {
           <div><Label>Trades / day</Label><Input type="number" value={tradesPerDay} onChange={(e) => setTradesPerDay(e.target.value)} className="mt-1" /></div>
           <div><Label>Horizon (days)</Label><Input type="number" value={horizonDays} onChange={(e) => setHorizonDays(e.target.value)} className="mt-1" /></div>
           <div><Label>Simulations</Label><Input type="number" value={runs} onChange={(e) => setRuns(e.target.value)} className="mt-1" /></div>
-          <div><Label>Goal balance $</Label><Input type="number" value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="optional" className="mt-1" /></div>
+          <div><Label>Goal balance ({active?.currency_confirmed_at ? active.currency : "currency unreviewed"})</Label><Input type="number" value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="optional" className="mt-1" /></div>
           <div className="flex items-end"><Button className="w-full" onClick={() => setTick((t) => t + 1)}>Run forecast</Button></div>
         </div>
         {insufficient && (
@@ -77,7 +78,7 @@ function ForecastPage() {
       {!insufficient && (
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatCard label="Median final equity" value={formatMoney(result.finalMedian)} />
+            <StatCard label="Median final equity" value={formatAccountMoney(result.finalMedian, active)} />
             <StatCard label="Prob. profitable" value={formatPct(result.probProfit * 100)} tone={result.probProfit >= 0.6 ? "profit" : result.probProfit >= 0.4 ? "muted" : "loss"} />
             {result.probGoal !== null && (
               <StatCard label="Prob. hit goal" value={formatPct(result.probGoal * 100)} tone={result.probGoal >= 0.5 ? "profit" : "muted"} />
@@ -86,10 +87,10 @@ function ForecastPage() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatCard label="p5 outcome" value={formatMoney(result.p5)} />
-            <StatCard label="p25" value={formatMoney(result.p25)} />
-            <StatCard label="p75" value={formatMoney(result.p75)} />
-            <StatCard label="p95 outcome" value={formatMoney(result.p95)} />
+            <StatCard label="p5 outcome" value={formatAccountMoney(result.p5, active)} />
+            <StatCard label="p25" value={formatAccountMoney(result.p25, active)} />
+            <StatCard label="p75" value={formatAccountMoney(result.p75, active)} />
+            <StatCard label="p95 outcome" value={formatAccountMoney(result.p95, active)} />
           </div>
 
           <Card className="glow-card p-6 border-border/40">
@@ -104,8 +105,8 @@ function ForecastPage() {
                     </linearGradient>
                   </defs>
                   <XAxis dataKey="step" tickFormatter={(v) => `t${v}`} stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => formatMoney(v)} />
-                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} formatter={(v: number) => formatMoney(v)} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => formatAccountMoney(v, active)} />
+                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} formatter={(v: number) => formatAccountMoney(v, active)} />
                   <Legend />
                   <Area type="monotone" dataKey="p95" stroke="none" fill="url(#cone)" name="p95" />
                   <Area type="monotone" dataKey="p5" stroke="none" fill="hsl(var(--background))" name="p5 floor" />

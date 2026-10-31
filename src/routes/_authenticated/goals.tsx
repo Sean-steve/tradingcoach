@@ -16,7 +16,8 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Trash2, Target } from "lucide-react";
-import { formatMoney, formatPct } from "@/lib/format";
+import { formatPct } from "@/lib/format";
+import { formatAccountMoney } from "@/lib/account-currency";
 
 export const Route = createFileRoute("/_authenticated/goals")({
   component: () => (
@@ -27,7 +28,7 @@ export const Route = createFileRoute("/_authenticated/goals")({
 });
 
 const METRICS = [
-  { value: "pnl", label: "Net P&L ($)" },
+  { value: "pnl", label: "Net P&L (account currency)" },
   { value: "win_rate", label: "Win rate (%)" },
   { value: "profit_factor", label: "Profit factor" },
   { value: "discipline_score", label: "Discipline score" },
@@ -77,7 +78,7 @@ function GoalsPage() {
   const [milestoneTarget, setMilestoneTarget] = useState("");
   const history = realizedSessionPnl(trades);
   const today = todayInZone(profile?.timezone || "UTC");
-  const currency = profile?.base_currency ?? "USD";
+  const currency = active?.currency_confirmed_at ? active.currency : "unreviewed";
 
   const add = async () => {
     if (!title.trim() || !target) return;
@@ -199,7 +200,7 @@ function GoalsPage() {
           const achieved = plan.achieved;
           const milestoneCurrent = modeForGoal === "incremental" ? current-start : current;
           const fmt = (v: number) =>
-            g.metric === "pnl" ? formatMoney(v, currency) :
+            g.metric === "pnl" ? formatAccountMoney(v, active) :
             g.metric === "win_rate" || g.metric === "max_drawdown_pct" ? formatPct(v) :
             v.toFixed(g.metric === "profit_factor" ? 2 : 0);
 
@@ -226,14 +227,14 @@ function GoalsPage() {
               <div className="text-xs text-muted-foreground mt-1">{pct.toFixed(0)}% of the way</div>
               {g.metric === "pnl" && g.deadline && !achieved && (
                 <div className="mt-3 p-3 rounded border border-border/40 space-y-1">
-                  <div className="text-sm">Remaining: {formatMoney(plan.remaining,currency)} · {plan.daysLeft} permitted planning days</div>
+                  <div className="text-sm">Remaining: {formatAccountMoney(plan.remaining, active)} · {plan.daysLeft} permitted planning days</div>
                   {plan.requiredPerDay != null && <div className="text-xs text-muted-foreground">
-                    Arithmetic average required: {formatMoney(plan.requiredPerDay,currency)}/planning day
-                    · {formatMoney(plan.requiredPerWeek ?? 0,currency)}/configured week
+                    Arithmetic average required: {formatAccountMoney(plan.requiredPerDay, active)}/planning day
+                    · {formatAccountMoney(plan.requiredPerWeek ?? 0, active)}/configured week
                   </div>}
                   <div className="text-xs text-muted-foreground">
                     Historical comparison: {plan.historicalDailyNet == null ? "insufficient sessions" :
-                      formatMoney(plan.historicalDailyNet,currency)+" per active trading day"} (n={plan.historicalSessions}).
+                      formatAccountMoney(plan.historicalDailyNet, active)+" per active trading day"} (n={plan.historicalSessions}).
                   </div>
                   <p className="text-xs text-muted-foreground">{planNotice(plan)}</p>
                 </div>

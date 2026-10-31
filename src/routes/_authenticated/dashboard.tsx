@@ -9,6 +9,7 @@ import type { TradeLike } from "@/lib/metrics";
 import { useActiveAccountId } from "@/lib/active-account";
 import { StatCard } from "@/components/stat-card";
 import { formatMoney, formatPct, formatNum, gradeFromScore, pnlTone } from "@/lib/format";
+import { formatAccountMoney } from "@/lib/account-currency";
 import { Card } from "@/components/ui/card";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
@@ -42,7 +43,7 @@ function Dashboard() {
   const { data: profile } = useSuspenseQuery(profilePreferencesQuery());
 
   const startBal = Number(active?.starting_balance ?? 10000);
-  const currency = profile?.base_currency ?? "USD";
+  // Display the SELECTED account currency, never the user profile base currency.
   const m = computeMetrics(trades as unknown as TradeLike[], startBal);
   const score = performanceScore(m);
   const grade = gradeFromScore(score.total);
@@ -138,10 +139,10 @@ function Dashboard() {
           <div className="absolute inset-0 pointer-events-none opacity-60" style={{ background: "var(--gradient-glow)" }} />
           <div className="relative flex items-start justify-between gap-6">
             <div>
-              <div className="text-xs uppercase tracking-wider text-muted-foreground">Current Balance</div>
-              <div className="mt-2 number-mono text-5xl font-bold">{formatMoney(m.currentBalance, currency)}</div>
+              <div className="text-xs uppercase tracking-wider text-muted-foreground">Booked Balance (includes recorded deposits / withdrawals)</div>
+              <div className="mt-2 number-mono text-5xl font-bold">{formatAccountMoney(Number(active?.current_balance ?? m.currentBalance), active)}</div>
               <div className="flex items-center gap-3 mt-3 text-sm">
-                <span className={`number-mono text-${pnlTone(m.netPnl)}`}>{formatMoney(m.netPnl, currency, { sign: true })}</span>
+                <span className={`number-mono text-${pnlTone(m.netPnl)}`}>{formatAccountMoney(m.netPnl, active, { sign: true })}</span>
                 <span className="text-muted-foreground">·</span>
                 <span className={`number-mono text-${pnlTone(m.roi)}`}>{formatPct(m.roi, { sign: true })}</span>
                 <span className="text-muted-foreground">all time</span>
@@ -166,8 +167,8 @@ function Dashboard() {
                 <YAxis hide domain={["auto", "auto"]} />
                 <Tooltip
                   contentStyle={{ background: "oklch(0.19 0.035 260)", border: "1px solid oklch(1 0 0 / 10%)", borderRadius: 8, fontSize: 12 }}
-                  formatter={(v: number) => formatMoney(v, currency)}
-                  labelFormatter={() => "Balance"}
+                  formatter={(v: number) => formatAccountMoney(v, active)}
+                  labelFormatter={() => "P&L-only path; excludes cash movements"}
                 />
                 <Area type="monotone" dataKey="balance" stroke="oklch(0.82 0.17 165)" strokeWidth={2} fill="url(#eq)" />
               </AreaChart>
@@ -213,7 +214,7 @@ function Dashboard() {
               <Progress value={plan.progressPct}/>
               <p className="text-xs text-muted-foreground">
                 {plan.achieved?"Target reached":plan.daysLeft!=null?`${plan.daysLeft} permitted planning days remain`:"No deadline"}
-                {g.metric==="pnl" && plan.requiredPerDay!=null ? ` · arithmetic pace ${formatMoney(plan.requiredPerDay,currency)}/day (not a quota)`:""}
+                {g.metric==="pnl" && plan.requiredPerDay!=null ? ` · arithmetic pace ${formatAccountMoney(plan.requiredPerDay, active)}/day (not a quota)`:""}
               </p>
             </div>;
           })}
@@ -231,18 +232,18 @@ function Dashboard() {
 
       {/* Period P&L */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard label="Today" value={formatMoney(dayPnl, currency, { sign: true })} tone={pnlTone(dayPnl)} />
-        <StatCard label="This Week" value={formatMoney(weekPnl, currency, { sign: true })} tone={pnlTone(weekPnl)} />
-        <StatCard label="This Month" value={formatMoney(monthPnl, currency, { sign: true })} tone={pnlTone(monthPnl)} />
-        <StatCard label="Net P&L" value={formatMoney(m.netPnl, currency, { sign: true })} tone={pnlTone(m.netPnl)} />
+        <StatCard label="Today" value={formatAccountMoney(dayPnl, active, { sign: true })} tone={pnlTone(dayPnl)} />
+        <StatCard label="This Week" value={formatAccountMoney(weekPnl, active, { sign: true })} tone={pnlTone(weekPnl)} />
+        <StatCard label="This Month" value={formatAccountMoney(monthPnl, active, { sign: true })} tone={pnlTone(monthPnl)} />
+        <StatCard label="Net P&L" value={formatAccountMoney(m.netPnl, active, { sign: true })} tone={pnlTone(m.netPnl)} />
       </div>
 
       {/* Psychology / Consistency / Weekly / Monthly grades */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard label="Psychology Score" value={psychScore || "—"} sub="0–100 · pre-trade check-ins" tone={psychScore >= 70 ? "profit" : psychScore >= 50 ? "warn" : psychScore ? "loss" : "muted"} />
         <StatCard label="Consistency Index" value={consistency} sub="win-rate + streak control" tone={consistency >= 70 ? "profit" : consistency >= 50 ? "warn" : "loss"} />
-        <StatCard label="Weekly Grade" value={weeklyGrade.grade} sub={weekly[0] ? `${weekly[0].trades} trades · ${formatMoney(weekly[0].netPnl, currency, { sign: true })}` : "no data"} tone={weeklyGrade.tone} />
-        <StatCard label="Monthly Grade" value={monthlyGrade.grade} sub={monthly[0] ? `${monthly[0].trades} trades · ${formatMoney(monthly[0].netPnl, currency, { sign: true })}` : "no data"} tone={monthlyGrade.tone} />
+        <StatCard label="Weekly Grade" value={weeklyGrade.grade} sub={weekly[0] ? `${weekly[0].trades} trades · ${formatAccountMoney(weekly[0].netPnl, active, { sign: true })}` : "no data"} tone={weeklyGrade.tone} />
+        <StatCard label="Monthly Grade" value={monthlyGrade.grade} sub={monthly[0] ? `${monthly[0].trades} trades · ${formatAccountMoney(monthly[0].netPnl, active, { sign: true })}` : "no data"} tone={monthlyGrade.tone} />
       </div>
 
       {/* AI Daily Advice */}
@@ -252,16 +253,16 @@ function Dashboard() {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <StatCard label="Win Rate" value={formatPct(m.winRate)} tone={m.winRate >= 50 ? "profit" : "warn"} sub={`${m.wins}W / ${m.losses}L`} />
         <StatCard label="Profit Factor" value={Number.isFinite(m.profitFactor) ? formatNum(m.profitFactor) : "∞"} tone={m.profitFactor >= 1.5 ? "profit" : m.profitFactor >= 1 ? "warn" : "loss"} />
-        <StatCard label="Expectancy" value={formatMoney(m.expectancy, currency, { sign: true })} tone={pnlTone(m.expectancy)} sub="per trade" />
+        <StatCard label="Expectancy" value={formatAccountMoney(m.expectancy, active, { sign: true })} tone={pnlTone(m.expectancy)} sub="per trade" />
         <StatCard label="Avg R:R" value={formatNum(m.avgRR)} tone={m.avgRR >= 1.5 ? "profit" : "warn"} />
-        <StatCard label="Avg Win" value={formatMoney(m.avgWin, currency)} tone="profit" />
-        <StatCard label="Avg Loss" value={formatMoney(m.avgLoss, currency)} tone="loss" />
+        <StatCard label="Avg Win" value={formatAccountMoney(m.avgWin, active)} tone="profit" />
+        <StatCard label="Avg Loss" value={formatAccountMoney(m.avgLoss, active)} tone="loss" />
       </div>
 
       {/* Risk row */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <StatCard label="Current DD" value={formatMoney(m.currentDrawdown, currency)} tone={m.currentDrawdown > 0 ? "loss" : "muted"} />
-        <StatCard label="Max DD" value={formatPct(m.maxDrawdownPct)} sub={formatMoney(m.maxDrawdown, currency)} tone="warn" />
+        <StatCard label="Current DD" value={formatAccountMoney(m.currentDrawdown, active)} tone={m.currentDrawdown > 0 ? "loss" : "muted"} />
+        <StatCard label="Max DD" value={formatPct(m.maxDrawdownPct)} sub={formatAccountMoney(m.maxDrawdown, active)} tone="warn" />
         <StatCard label="Current Streak" value={`${m.currentStreak > 0 ? "+" : ""}${m.currentStreak}`} tone={m.currentStreak > 0 ? "profit" : m.currentStreak < 0 ? "loss" : "muted"} />
         <StatCard label="Longest Win" value={String(m.longestWinStreak)} tone="profit" />
         <StatCard label="Longest Loss" value={String(m.longestLossStreak)} tone="loss" />
@@ -289,7 +290,7 @@ function Dashboard() {
                     </div>
                   </div>
                   <div className={`number-mono text-sm text-${pnlTone(Number(t.pnl))}`}>
-                    {formatMoney(Number(t.pnl), currency, { sign: true })}
+                    {formatAccountMoney(Number(t.pnl), active, { sign: true })}
                   </div>
                 </div>
               ))}

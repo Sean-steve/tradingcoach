@@ -16,6 +16,8 @@ export type Database = {
     Tables: {
       accounts: {
         Row: {
+          currency: string
+          currency_confirmed_at: string | null
           account_type: Database["public"]["Enums"]["account_type"]
           broker: string | null
           created_at: string
@@ -33,6 +35,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          currency?: string
+          currency_confirmed_at?: string | null
           account_type?: Database["public"]["Enums"]["account_type"]
           broker?: string | null
           created_at?: string
@@ -50,6 +54,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          currency?: string
+          currency_confirmed_at?: string | null
           account_type?: Database["public"]["Enums"]["account_type"]
           broker?: string | null
           created_at?: string
@@ -66,6 +72,18 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
+        Relationships: []
+      }
+      account_cash_movements: {
+        Row: { id: string; account_id: string; user_id: string; kind: "deposit" | "withdrawal"; amount: number; currency: string; idempotency_key: string; reference: string | null; created_at: string }
+        Insert: { id?: string; account_id: string; user_id: string; kind: "deposit" | "withdrawal"; amount: number; currency: string; idempotency_key: string; reference?: string | null; created_at?: string }
+        Update: { id?: string; account_id?: string; user_id?: string; kind?: "deposit" | "withdrawal"; amount?: number; currency?: string; idempotency_key?: string; reference?: string | null; created_at?: string }
+        Relationships: []
+      }
+      trade_import_runs: {
+        Row: { id: string; user_id: string; account_id: string; source: string; attempted_rows: number; inserted_rows: number; skipped_duplicates: number; created_at: string }
+        Insert: { id?: string; user_id: string; account_id: string; source?: string; attempted_rows: number; inserted_rows?: number; skipped_duplicates?: number; created_at?: string }
+        Update: { id?: string; user_id?: string; account_id?: string; source?: string; attempted_rows?: number; inserted_rows?: number; skipped_duplicates?: number; created_at?: string }
         Relationships: []
       }
       advice_outcomes: {
@@ -2067,6 +2085,8 @@ export type Database = {
       }
       trades: {
         Row: {
+          currency: string | null
+          import_run_id: string | null
           contract_type: "spot" | "binary"
           binary_outcome: "pending" | "win" | "loss" | "push" | "void" | null
           payout_percent: number | null
@@ -2113,6 +2133,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          currency?: string | null
+          import_run_id?: string | null
           contract_type?: "spot" | "binary"
           binary_outcome?: "pending" | "win" | "loss" | "push" | "void" | null
           payout_percent?: number | null
@@ -2159,6 +2181,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          currency?: string | null
+          import_run_id?: string | null
           contract_type?: "spot" | "binary"
           binary_outcome?: "pending" | "win" | "loss" | "push" | "void" | null
           payout_percent?: number | null
@@ -2327,6 +2351,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      tradeos_phase_f1_ready: { Args: Record<string, never>; Returns: boolean }
+      tradeos_confirm_account_currency: { Args: { p_account: string; p_currency: string }; Returns: string }
+      tradeos_record_cash_movement: {
+        Args: { p_account: string; p_kind: string; p_amount: number; p_idempotency_key: string; p_reference?: string | null }
+        Returns: { id: string; duplicate: boolean; currency: string; verification: string }
+      }
+      tradeos_account_reconciliation: {
+        Args: Record<string, never>
+        Returns: Array<{ account_id: string; account_name: string; currency: string; currency_confirmed: boolean; starting_balance: number; current_balance: number; trade_pnl: number; net_cash: number; expected_balance: number; variance: number; status: string }>
+      }
       tradeos_phase4_ready: { Args: Record<string, never>; Returns: boolean }
       tradeos_reward_event: {
         Args: { p_reward: string; p_type: string; p_amount: number; p_reference?: string | null }

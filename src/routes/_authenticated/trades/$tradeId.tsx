@@ -6,7 +6,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { formatMoney, formatPct, pnlTone } from "@/lib/format";
+import { formatPct, pnlTone } from "@/lib/format";
+import { formatAccountMoney } from "@/lib/account-currency";
+import { accountsQuery } from "@/lib/queries";
 import { ArrowLeft, Camera } from "lucide-react";
 
 const tradeByIdQuery = (id: string) =>
@@ -45,7 +47,9 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: str
 function TradeDetail() {
   const { tradeId } = Route.useParams();
   const { data } = useSuspenseQuery(tradeByIdQuery(tradeId));
+  const { data: accounts } = useSuspenseQuery(accountsQuery());
   const t = data.trade;
+  const account = accounts.find(a => a.id === t?.account_id);
   if (!t) return <div className="p-8 text-muted-foreground">Trade not found. <Link to="/trades" className="text-primary underline">Back</Link></div>;
 
   return (
@@ -61,7 +65,7 @@ function TradeDetail() {
             </div>
             <div className="text-sm text-muted-foreground mt-1">{t.setup ?? "—"} · {new Date(t.entered_at).toLocaleString()}</div>
           </div>
-          <div className={`text-3xl font-bold number-mono text-${pnlTone(Number(t.pnl))}`}>{formatMoney(Number(t.pnl), "USD", { sign: true })}</div>
+          <div className={`text-3xl font-bold number-mono text-${pnlTone(Number(t.pnl))}`}>{formatAccountMoney(Number(t.pnl), account, { sign: true })}</div>
         </div>
       </div>
 
@@ -73,7 +77,7 @@ function TradeDetail() {
         <Stat label="Risk %" value={t.risk_pct ? formatPct(Number(t.risk_pct)) : "—"} />
         <Stat label="Planned RR" value={t.planned_rr ? String(t.planned_rr) : "—"} />
         <Stat label="Realized RR" value={t.realized_rr ? String(t.realized_rr) : "—"} />
-        <Stat label="Fees" value={formatMoney(Number(t.fees ?? 0))} />
+        <Stat label="Fees" value={formatAccountMoney(Number(t.fees ?? 0), account)} />
       </Card>
 
       {t.contract_type === "binary" && (
@@ -81,11 +85,11 @@ function TradeDetail() {
           <h2 className="font-semibold">Binary-Options Contract</h2>
           <p className="text-xs text-muted-foreground">Displayed P&L is the settled net amount calculated by the database, not total broker return.</p>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <Stat label="Stake" value={formatMoney(Number(t.stake ?? 0))} />
+            <Stat label="Stake" value={formatAccountMoney(Number(t.stake ?? 0), account)} />
             <Stat label="Win payout" value={t.payout_percent == null ? "—" : `${Number(t.payout_percent).toFixed(2)}%`} />
             <Stat label="Expiry" value={t.expires_at ? new Date(t.expires_at).toLocaleString() : "—"} />
             <Stat label="Settlement" value={t.binary_outcome ?? "—"} />
-            <Stat label="Stake refunded" value={t.refund_amount == null ? "—" : formatMoney(Number(t.refund_amount))} />
+            <Stat label="Stake refunded" value={t.refund_amount == null ? "—" : formatAccountMoney(Number(t.refund_amount), account)} />
           </div>
         </Card>
       )}

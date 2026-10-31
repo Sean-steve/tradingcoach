@@ -21,8 +21,6 @@ import { evaluateTrigger, type InterventionLike, type TriggerContext } from "@/l
 import { useActiveAccountId } from "@/lib/active-account";
 import { isFoundationMigrationActive, isPhase2Active } from "@/lib/foundation-readiness";
 import { binaryNetPnl, binaryBreakevenWinRate, type BinarySettlement } from "@/lib/binary-options";
-import { useServerFn } from "@tanstack/react-start";
-import { runIntelligence } from "@/lib/intelligence.functions";
 
 export const Route = createFileRoute("/_authenticated/trades/new")({
   component: () => (
@@ -37,7 +35,6 @@ type TradeInsert = Database["public"]["Tables"]["trades"]["Insert"];
 function NewTrade() {
   const navigate = useNavigate();
   const { activeId } = useActiveAccountId();
-  const runPipeline = useServerFn(runIntelligence);
   const { data: accounts } = useSuspenseQuery(accountsQuery());
   const { data: strategies } = useSuspenseQuery(strategiesQuery());
   const { data: catalog } = useSuspenseQuery(mistakeCatalogQuery());
@@ -207,6 +204,7 @@ function NewTrade() {
       const userId = userData.user?.id;
       if (!userId) throw new Error("Not signed in");
       const foundationActive = await isFoundationMigrationActive();
+      if (!foundationActive) throw new Error("Database financial migrations are required before recording trades.");
       if (isBinary && !(await isPhase2Active())) throw new Error("Binary contracts require the Phase 2 database migration. Standard journaling remains available.");
       if (foundationActive && !activeManual) throw new Error("Publish your Trading Operating Manual before logging a new trade.");
 
@@ -340,23 +338,7 @@ function NewTrade() {
         { onConflict: "trade_id" },
       );
 
-      if (!foundationActive) {
-        // Backward compatibility before the database migration is applied.
-        // Once migrated, database triggers handle this transactionally.
-        const acct = accounts.find((a) => a.id === form.account_id);
-        if (acct) {
-          const { error: balanceError } = await supabase.from("accounts")
-            .update({ current_balance: Number(acct.current_balance) + (result === "open" ? 0 : pnl) })
-            .eq("id", acct.id);
-          if (balanceError) console.error("Legacy balance update failed", balanceError);
-        }
-        runPipeline({ data: { accountId: form.account_id } }).catch((error: unknown) => {
-          console.error("Legacy intelligence refresh failed", error);
-        });
-        toast.success("Trade logged");
-      } else {
-        toast.success("Trade logged — intelligence refresh queued");
-      }
+      toast.success("Trade logged — intelligence refresh queued");
       navigate({ to: "/trades" });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save trade");
