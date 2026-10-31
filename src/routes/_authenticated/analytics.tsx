@@ -7,7 +7,8 @@ import { binaryAnalytics } from "@/lib/binary-options";
 import { computeMetrics, rollingPerformance, heatmapData, rollup, bucketDay, bucketWeek, bucketMonth, bucketQuarter, bucketYear, type TradeLike } from "@/lib/metrics";
 import { Card } from "@/components/ui/card";
 import { StatCard } from "@/components/stat-card";
-import { formatMoney, formatNum, formatPct, pnlTone } from "@/lib/format";
+import { formatNum, formatPct, pnlTone } from "@/lib/format";
+import { formatAccountMoney, type CurrencyAccount } from "@/lib/account-currency";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -65,10 +66,10 @@ function Analytics() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
         <StatCard label="Trades" value={m.tradesCount} />
-        <StatCard label="Net P&L" value={formatMoney(m.netPnl, "USD", { sign: true })} tone={pnlTone(m.netPnl)} />
+        <StatCard label="Net P&L" value={formatAccountMoney(m.netPnl, account, { sign: true })} tone={pnlTone(m.netPnl)} />
         <StatCard label="Win Rate" value={formatPct(m.winRate)} />
         <StatCard label="Profit Factor" value={Number.isFinite(m.profitFactor) ? formatNum(m.profitFactor) : "∞"} />
-        <StatCard label="Expectancy" value={formatMoney(m.expectancy, "USD", { sign: true })} tone={pnlTone(m.expectancy)} />
+        <StatCard label="Expectancy" value={formatAccountMoney(m.expectancy, account, { sign: true })} tone={pnlTone(m.expectancy)} />
         <StatCard label="Max DD" value={formatPct(m.maxDrawdownPct)} tone="warn" />
       </div>
 
@@ -81,9 +82,9 @@ function Analytics() {
             <StatCard label="Decisive win rate" value={binary.winRate == null ? "—" : formatPct(binary.winRate)} />
             <StatCard label="Average payout" value={binary.averagePayoutPct == null ? "—" : formatPct(binary.averagePayoutPct)} />
             <StatCard label="No-fee breakeven" value={binary.breakevenWinRatePct == null ? "—" : formatPct(binary.breakevenWinRatePct)} />
-            <StatCard label="Net P&L" value={formatMoney(binary.realizedNetPnl, "USD", { sign: true })} tone={pnlTone(binary.realizedNetPnl)} />
+            <StatCard label="Net P&L" value={formatAccountMoney(binary.realizedNetPnl, account, { sign: true })} tone={pnlTone(binary.realizedNetPnl)} />
           </div>
-          <p className="text-xs text-muted-foreground">{binary.refunded} push/void settlements; total settled stake {formatMoney(binary.totalStaked)}.</p>
+          <p className="text-xs text-muted-foreground">{binary.refunded} push/void settlements; total settled stake {formatAccountMoney(binary.totalStaked, account)}.</p>
         </Card>
       )}
 
@@ -102,7 +103,7 @@ function Analytics() {
                 <CartesianGrid strokeDasharray="3 3" stroke="oklch(1 0 0 / 5%)" />
                 <XAxis dataKey="i" hide />
                 <YAxis tick={{ fontSize: 11, fill: "oklch(0.68 0.03 250)" }} />
-                <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatMoney(v, "USD")} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatAccountMoney(v, account)} />
                 <Area type="monotone" dataKey="balance" stroke="oklch(0.82 0.17 165)" strokeWidth={2} fill="url(#ec)" />
               </AreaChart>
             </ResponsiveContainer>
@@ -138,7 +139,7 @@ function Analytics() {
                 <CartesianGrid strokeDasharray="3 3" stroke="oklch(1 0 0 / 5%)" />
                 <XAxis dataKey="month" tick={{ fontSize: 11, fill: "oklch(0.68 0.03 250)" }} />
                 <YAxis tick={{ fontSize: 11, fill: "oklch(0.68 0.03 250)" }} />
-                <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatMoney(v, "USD", { sign: true })} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatAccountMoney(v, account, { sign: true })} />
                 <Bar dataKey="pnl">
                   {byMonth.map((d, i) => <Cell key={i} fill={d.pnl >= 0 ? "oklch(0.82 0.17 165)" : "oklch(0.65 0.24 25)"} />)}
                 </Bar>
@@ -155,7 +156,7 @@ function Analytics() {
                 <CartesianGrid strokeDasharray="3 3" stroke="oklch(1 0 0 / 5%)" />
                 <XAxis dataKey="day" tick={{ fontSize: 11, fill: "oklch(0.68 0.03 250)" }} />
                 <YAxis tick={{ fontSize: 11, fill: "oklch(0.68 0.03 250)" }} />
-                <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatMoney(v, "USD", { sign: true })} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatAccountMoney(v, account, { sign: true })} />
                 <Bar dataKey="pnl">
                   {byDow.map((d, i) => <Cell key={i} fill={d.pnl >= 0 ? "oklch(0.82 0.17 165)" : "oklch(0.65 0.24 25)"} />)}
                 </Bar>
@@ -166,13 +167,13 @@ function Analytics() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <BreakdownTable title="Performance by session" rows={bySession} />
-        <BreakdownTable title="Top assets" rows={byAsset} />
+        <BreakdownTable title="Performance by session" rows={bySession} account={account} />
+        <BreakdownTable title="Top assets" rows={byAsset} account={account} />
       </div>
 
       <WinRateAndRolling trades={trades as unknown as TradeLike[]} />
-      <HeatmapCalendar trades={trades as unknown as TradeLike[]} />
-      <PeriodTables trades={trades as unknown as TradeLike[]} />
+      <HeatmapCalendar trades={trades as unknown as TradeLike[]} account={account} />
+      <PeriodTables trades={trades as unknown as TradeLike[]} account={account} />
     </div>
   );
 }
@@ -192,7 +193,7 @@ function aggregate(trades: Array<{ pnl: number | string; result: string }>, key:
   return [...map.values()].sort((a, b) => b.pnl - a.pnl);
 }
 
-function BreakdownTable({ title, rows }: { title: string; rows: { key: string; count: number; wins: number; pnl: number }[] }) {
+function BreakdownTable({ title, rows, account }: { title: string; rows: { key: string; count: number; wins: number; pnl: number }[]; account?: CurrencyAccount }) {
   return (
     <Card className="glow-card p-6 border-border/40">
       <h3 className="font-semibold mb-4">{title}</h3>
@@ -207,7 +208,7 @@ function BreakdownTable({ title, rows }: { title: string; rows: { key: string; c
               <td className="py-2">{r.key}</td>
               <td className="text-right number-mono text-muted-foreground">{r.count}</td>
               <td className="text-right number-mono">{formatPct((r.wins / r.count) * 100, { digits: 0 })}</td>
-              <td className={`text-right number-mono text-${pnlTone(r.pnl)}`}>{formatMoney(r.pnl, "USD", { sign: true })}</td>
+              <td className={`text-right number-mono text-${pnlTone(r.pnl)}`}>{formatAccountMoney(r.pnl, account, { sign: true })}</td>
             </tr>
           ))}
         </tbody>
@@ -260,7 +261,7 @@ function WinRateAndRolling({ trades }: { trades: TradeLike[] }) {
   );
 }
 
-function HeatmapCalendar({ trades }: { trades: TradeLike[] }) {
+function HeatmapCalendar({ trades, account }: { trades: TradeLike[]; account?: CurrencyAccount }) {
   const rows = heatmapData(trades);
   const map = new Map(rows.map((r) => [r.date, r]));
   const today = new Date();
@@ -287,7 +288,7 @@ function HeatmapCalendar({ trades }: { trades: TradeLike[] }) {
           return (
             <div
               key={d.date}
-              title={`${d.date}: ${d.count} trades · ${formatMoney(d.pnl, "USD", { sign: true })}`}
+              title={`${d.date}: ${d.count} trades · ${formatAccountMoney(d.pnl, account, { sign: true })}`}
               className="aspect-square rounded-sm border border-border/30"
               style={{ background: bg }}
             />
@@ -305,7 +306,7 @@ function HeatmapCalendar({ trades }: { trades: TradeLike[] }) {
   );
 }
 
-function PeriodTables({ trades }: { trades: TradeLike[] }) {
+function PeriodTables({ trades, account }: { trades: TradeLike[]; account?: CurrencyAccount }) {
   const [period, setPeriod] = useState<"daily" | "weekly" | "monthly" | "quarterly" | "yearly" | "lifetime">("monthly");
   const bucketMap = {
     daily: bucketDay,
@@ -357,8 +358,8 @@ function PeriodTables({ trades }: { trades: TradeLike[] }) {
                 <td className="text-right number-mono text-loss">{r.losses}</td>
                 <td className="text-right number-mono">{formatPct(r.winRate, { digits: 0 })}</td>
                 <td className="text-right number-mono">{Number.isFinite(r.profitFactor) ? formatNum(r.profitFactor) : "∞"}</td>
-                <td className={`text-right number-mono text-${pnlTone(r.expectancy)}`}>{formatMoney(r.expectancy, "USD", { sign: true })}</td>
-                <td className={`text-right number-mono text-${pnlTone(r.netPnl)}`}>{formatMoney(r.netPnl, "USD", { sign: true })}</td>
+                <td className={`text-right number-mono text-${pnlTone(r.expectancy)}`}>{formatAccountMoney(r.expectancy, account, { sign: true })}</td>
+                <td className={`text-right number-mono text-${pnlTone(r.netPnl)}`}>{formatAccountMoney(r.netPnl, account, { sign: true })}</td>
               </tr>
             ))}
           </tbody>

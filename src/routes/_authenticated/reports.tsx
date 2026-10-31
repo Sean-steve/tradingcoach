@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { formatMoney, formatPct, formatNum } from "@/lib/format";
+import { formatPct, formatNum } from "@/lib/format";
+import { formatAccountMoney } from "@/lib/account-currency";
 import { FileText, FileSpreadsheet, Download } from "lucide-react";
 import { toast } from "sonner";
 
@@ -63,7 +64,7 @@ function ReportsPage() {
       doc.setFontSize(20); doc.setTextColor(0, 200, 150);
       doc.text("TRADE OS — Performance Report", 40, 50);
       doc.setFontSize(10); doc.setTextColor(120);
-      doc.text(`${active?.name ?? "Account"} · ${from} → ${to}`, 40, 68);
+      doc.text(`${active?.name ?? "Account"} · ${active?.currency_confirmed_at ? active.currency : "CURRENCY UNREVIEWED"} · ${from} → ${to}`, 40, 68);
 
       autoTable(doc, {
         startY: 90, theme: "grid",
@@ -71,11 +72,11 @@ function ReportsPage() {
         body: [
           ["Trades", String(m.tradesCount)],
           ["Win rate", formatPct(m.winRate)],
-          ["Net P&L", formatMoney(m.netPnl, "USD", { sign: true })],
+          ["Net P&L", formatAccountMoney(m.netPnl, active, { sign: true })],
           ["Profit factor", Number.isFinite(m.profitFactor) ? formatNum(m.profitFactor) : "∞"],
-          ["Expectancy", formatMoney(m.expectancy, "USD", { sign: true })],
+          ["Expectancy", formatAccountMoney(m.expectancy, active, { sign: true })],
           ["Avg R:R", formatNum(m.avgRR)],
-          ["Max drawdown", `${formatPct(m.maxDrawdownPct)} (${formatMoney(m.maxDrawdown)})`],
+          ["Max drawdown", `${formatPct(m.maxDrawdownPct)} (${formatAccountMoney(m.maxDrawdown, active)})`],
           ["Longest win streak", String(m.longestWinStreak)],
           ["Longest loss streak", String(m.longestLossStreak)],
           ["Rule compliance", formatPct(m.ruleCompliancePct)],
@@ -97,7 +98,7 @@ function ReportsPage() {
           t.asset,
           t.direction,
           t.realized_rr ? formatNum(Number(t.realized_rr)) : "—",
-          formatMoney(Number(t.pnl), "USD", { sign: true }),
+          formatAccountMoney(Number(t.pnl, active), "USD", { sign: true }),
           t.result,
         ]),
         headStyles: { fillColor: [10, 15, 30], textColor: 255 },
@@ -138,7 +139,8 @@ function ReportsPage() {
         ["Period", `${from} → ${to}`],
         ["Trades", m.tradesCount],
         ["Win rate %", +m.winRate.toFixed(2)],
-        ["Net P&L", +m.netPnl.toFixed(2)],
+        ["Currency", active?.currency_confirmed_at ? active.currency : "UNREVIEWED"],
+      ["Net P&L", +m.netPnl.toFixed(2)],
         ["Profit factor", Number.isFinite(m.profitFactor) ? +m.profitFactor.toFixed(2) : ""],
         ["Expectancy", +m.expectancy.toFixed(2)],
         ["Avg R:R", +m.avgRR.toFixed(2)],
@@ -210,10 +212,10 @@ function ReportsPage() {
         <div className="flex items-center gap-2 mb-4"><Download className="h-4 w-4 text-primary" /><h2 className="font-semibold">Preview — what will be exported</h2></div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
           <Stat label="Trades" value={String(m.tradesCount)} />
-          <Stat label="Net P&L" value={formatMoney(m.netPnl, "USD", { sign: true })} />
+          <Stat label="Net P&L" value={formatAccountMoney(m.netPnl, active, { sign: true })} />
           <Stat label="Win rate" value={formatPct(m.winRate)} />
           <Stat label="Profit factor" value={Number.isFinite(m.profitFactor) ? formatNum(m.profitFactor) : "∞"} />
-          <Stat label="Expectancy" value={formatMoney(m.expectancy, "USD", { sign: true })} />
+          <Stat label="Expectancy" value={formatAccountMoney(m.expectancy, active, { sign: true })} />
           <Stat label="Avg R:R" value={formatNum(m.avgRR)} />
           <Stat label="Max DD" value={formatPct(m.maxDrawdownPct)} />
           <Stat label="Score" value={`${score.total} / 100`} />
