@@ -10,7 +10,6 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
-import { reportLovableError } from "../lib/lovable-error-reporting";
 import { supabase } from "@/integrations/supabase/client";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -39,9 +38,6 @@ function NotFoundComponent() {
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
-  useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
-  }, [error]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -80,7 +76,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "TRADE OS — Performance Operating System for Traders" },
-      { name: "description", content: "Not another trade journal. An AI performance coach that measures discipline over luck and turns you into a consistently profitable trader." },
+      { name: "description", content: "A discipline-first trading journal with evidence-based analytics and process coaching. No profit guarantees." },
       { property: "og:title", content: "TRADE OS — Performance Operating System for Traders" },
       { property: "og:description", content: "Not another trade journal. An AI performance coach that measures discipline over luck and turns you into a consistently profitable trader." },
       { property: "og:type", content: "website" },
@@ -88,8 +84,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "theme-color", content: "#0a0f1e" },
       { name: "twitter:title", content: "TRADE OS — Performance Operating System for Traders" },
       { name: "twitter:description", content: "Not another trade journal. An AI performance coach that measures discipline over luck and turns you into a consistently profitable trader." },
-      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/TZvWvz4fzRPICq7a6OBKmZdSmAF3/social-images/social-1783583183005-bulls.webp" },
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/TZvWvz4fzRPICq7a6OBKmZdSmAF3/social-images/social-1783583183005-bulls.webp" },
+      { property: "og:image", content: "/og-image.png" },
+      { name: "twitter:image", content: "/og-image.png" },
     ],
     links: [
       { rel: "preconnect", href: "https://fonts.googleapis.com" },

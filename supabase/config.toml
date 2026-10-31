@@ -1,1 +1,35 @@
-project_id = "coicdynjjtlppuuenncr"
+# Isolated local project. Never use the remote Lovable project reference here.
+project_id = "trade-os-local"
+
+[api]
+enabled = true
+port = 54321
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[studio]
+enabled = true
+port = 54323
+
+[inbucket]
+enabled = true
+port = 55424
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:8080"
+additional_redirect_urls = ["http://localhost:8080", "http://127.0.0.1:8080"]
+
+[auth.email]
+enable_signup = true
+enable_confirmations = false
+
+[storage]
+enabled = true
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
