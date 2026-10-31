@@ -27,3 +27,11 @@ export async function isPhase3Active(): Promise<boolean> {
   if (error.code === "PGRST202" || error.code === "42883") return false;
   throw new Error("Unable to verify coaching database readiness: " + error.message);
 }
+
+/** New personal planning schema is optional during staged migrations. */
+export async function isPhase4Active(): Promise<boolean> {
+  const { data, error } = await supabase.rpc("tradeos_phase4_ready");
+  if (!error) return data === true;
+  if (error.code === "PGRST202" || error.code === "42883") return false;
+  throw new Error("Unable to verify personal goals/rewards database readiness: " + error.message);
+}

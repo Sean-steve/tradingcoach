@@ -603,8 +603,134 @@ export type Database = {
           },
         ]
       }
+      goal_milestones: {
+        Row: {
+          id: string
+          user_id: string
+          goal_id: string
+          title: string
+          target_value: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string
+          goal_id?: string
+          title?: string
+          target_value?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          goal_id?: string
+          title?: string
+          target_value?: number
+          created_at?: string
+        }
+        Relationships: []
+      }
+      lifestyle_rewards: {
+        Row: {
+          linked_goal_id: string | null
+          id: string
+          user_id: string
+          account_id: string
+          title: string
+          description: string | null
+          category: "travel" | "experience" | "purchase" | "education" | "other"
+          destination: string | null
+          currency: string
+          budget: number
+          funding_cap_pct: number
+          min_closed_trades: number
+          min_plan_adherence_pct: number
+          target_date: string | null
+          status: "planned" | "redeemed_reported" | "archived"
+          redeemed_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          linked_goal_id?: string | null
+          id?: string
+          user_id?: string
+          account_id?: string
+          title?: string
+          description?: string | null
+          category?: "travel" | "experience" | "purchase" | "education" | "other"
+          destination?: string | null
+          currency?: string
+          budget?: number
+          funding_cap_pct?: number
+          min_closed_trades?: number
+          min_plan_adherence_pct?: number
+          target_date?: string | null
+          status?: "planned" | "redeemed_reported" | "archived"
+          redeemed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          linked_goal_id?: string | null
+          id?: string
+          user_id?: string
+          account_id?: string
+          title?: string
+          description?: string | null
+          category?: "travel" | "experience" | "purchase" | "education" | "other"
+          destination?: string | null
+          currency?: string
+          budget?: number
+          funding_cap_pct?: number
+          min_closed_trades?: number
+          min_plan_adherence_pct?: number
+          target_date?: string | null
+          status?: "planned" | "redeemed_reported" | "archived"
+          redeemed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      reward_funding_events: {
+        Row: {
+          id: string
+          user_id: string
+          account_id: string
+          reward_id: string
+          event_type: "pledge" | "reported_transfer"
+          amount: number
+          source_reference: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string
+          account_id?: string
+          reward_id?: string
+          event_type?: "pledge" | "reported_transfer"
+          amount?: number
+          source_reference?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          account_id?: string
+          reward_id?: string
+          event_type?: "pledge" | "reported_transfer"
+          amount?: number
+          source_reference?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       goals: {
         Row: {
+          horizon: "daily" | "weekly" | "monthly" | "quarterly" | "annual" | "custom"
+          target_mode: "absolute" | "incremental"
+          trading_weekdays: number[]
           account_id: string | null
           achieved_at: string | null
           created_at: string
@@ -620,6 +746,9 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          horizon?: "daily" | "weekly" | "monthly" | "quarterly" | "annual" | "custom"
+          target_mode?: "absolute" | "incremental"
+          trading_weekdays?: number[]
           account_id?: string | null
           achieved_at?: string | null
           created_at?: string
@@ -635,6 +764,9 @@ export type Database = {
           user_id: string
         }
         Update: {
+          horizon?: "daily" | "weekly" | "monthly" | "quarterly" | "annual" | "custom"
+          target_mode?: "absolute" | "incremental"
+          trading_weekdays?: number[]
           account_id?: string | null
           achieved_at?: string | null
           created_at?: string
@@ -2150,6 +2282,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      tradeos_phase4_ready: { Args: Record<string, never>; Returns: boolean }
+      tradeos_reward_event: {
+        Args: { p_reward: string; p_type: string; p_amount: number; p_reference?: string | null }
+        Returns: Json
+      }
+      tradeos_report_reward_redemption: { Args: { p_reward: string }; Returns: boolean }
+
       tradeos_phase3_ready: {
         Args: Record<string, never>
         Returns: boolean
