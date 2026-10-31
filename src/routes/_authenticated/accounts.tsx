@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useMemo, useRef, useState } from "react";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { accountsQuery, tradesQuery, profitAllocationsQuery, allocationRulesQuery } from "@/lib/queries";
@@ -84,7 +84,8 @@ function AccountsPage() {
     const grouped = new Map<string,{currency: string; verified: boolean; balance: number; pnl: number; allocated: number; count: number}>();
     for (const a of accounts) {
       const verified=!!a.currency_confirmed_at;
-      const key=verified ? a.currency : "UNREVIEWED";
+      // Never aggregate two unreviewed accounts: their monetary units may differ.
+      const key=verified ? a.currency : "UNREVIEWED:"+a.id;
       const row=grouped.get(key) ?? {currency:key,verified,balance:0,pnl:0,allocated:0,count:0};
       const stats=perAccount.get(a.id)!;
       row.balance+=Number(a.current_balance);
@@ -243,6 +244,8 @@ function CashMovementPanel({ account, onRecorded }: {
   const [reference,setReference] = useState("");
   const [currency,setCurrency] = useState(account.currency);
   const [busy,setBusy] = useState(false);
+  // Retain a key across network failure retries for the SAME movement intent.
+  const pending = useRef<{ fingerprint: string; key: string } | null>(null);
   const qc = useQueryClient();
   const confirmed=!!account.currency_confirmed_at;
   const submit = async () => {
@@ -252,14 +255,18 @@ function CashMovementPanel({ account, onRecorded }: {
       toast.error("Confirm the currency and enter a positive, cent-exact amount");
       return;
     }
+    const fingerprint=JSON.stringify([account.id,kind,amountNumber,reference.trim()]);
+    if(pending.current?.fingerprint!==fingerprint)pending.current={fingerprint,key:crypto.randomUUID()};
+    const idempotencyKey=pending.current.key;
     setBusy(true);
     try {
       const {data,error}=await supabase.rpc("tradeos_record_cash_movement",{
         p_account:account.id,p_kind:kind,p_amount:amountNumber,
-        p_idempotency_key:crypto.randomUUID(),p_reference:reference.trim()||null,
+        p_idempotency_key:idempotencyKey,p_reference:reference.trim()||null,
       });
       if(error)throw error;
       toast.success(data?.duplicate ? "Already recorded" : "Cash movement recorded — not bank-verified");
+      pending.current=null;
       setAmount("");setReference("");
       onRecorded();
       qc.invalidateQueries({queryKey:["account_cash_movements"]});
