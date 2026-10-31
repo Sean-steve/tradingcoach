@@ -18,9 +18,9 @@ const psql=`#!/usr/bin/env bash
 case "$*" in
  *"concat_ws"*)
     if [[ "$*" == *"source"* ]]; then echo "127.0.0.1|5432|prod"; else
-      echo "${MOCK_TARGET_ID:-127.0.0.1|5433|scratch}"
+      echo "\${MOCK_TARGET_ID:-127.0.0.1|5433|scratch}"
     fi ;;
- *"count(*)"*) echo "${MOCK_TARGET_COUNT:-0}" ;;
+ *"count(*)"*) echo "\${MOCK_TARGET_COUNT:-0}" ;;
  *) exit 44 ;;
 esac
 `;
