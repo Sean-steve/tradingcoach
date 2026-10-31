@@ -1,0 +1,43 @@
+name: TRADE OS — Local Supabase Database Certification
+
+on:
+  pull_request:
+  push:
+    branches: ["feat/phases-a-b-*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  local-database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.84.2
+      - name: Start isolated local Supabase (all tracked migrations)
+        run: |
+          supabase start -x realtime,imgproxy,vector,logflare,supavisor
+      - name: Verify migration and pgTAP suite
+        run: |
+          supabase migration list --local
+          supabase test db
+      - name: Test RLS, binary settlement, deduplication and reward rules
+        shell: bash
+        run: |
+          bash scripts/local/env.sh --force
+          set -a
+          source .env.local
+          set +a
+          node scripts/local/smoke.mjs
+      - name: Stop isolated local stack
+        if: always()
+        run: supabase stop || true
