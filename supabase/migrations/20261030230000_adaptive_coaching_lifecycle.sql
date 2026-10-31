@@ -47,7 +47,7 @@ GRANT UPDATE (hard_block, status, resolved_at, updated_at)
 -- Authenticated clients can archive their guardrail or change its advisory
 -- hard-block preference; only background workers may mark evidence-based success.
 CREATE OR REPLACE FUNCTION public.tradeos_guard_client_intervention_update()
-RETURNS trigger LANGUAGE plpgsql SET search_path = '' AS $
+RETURNS trigger LANGUAGE plpgsql SET search_path = '' AS $$
 BEGIN
   IF current_user = 'authenticated' THEN
     IF NEW.status IS DISTINCT FROM OLD.status AND NEW.status <> 'archived'::public.intervention_status THEN
@@ -59,7 +59,7 @@ BEGIN
     END IF;
   END IF;
   RETURN NEW;
-END $;
+END $$;
 CREATE TRIGGER trg_tradeos_guard_client_intervention_update
  BEFORE UPDATE ON public.interventions
  FOR EACH ROW EXECUTE FUNCTION public.tradeos_guard_client_intervention_update();
