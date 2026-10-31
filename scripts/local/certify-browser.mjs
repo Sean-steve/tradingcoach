@@ -81,6 +81,17 @@ try {
   await page.locator("#password").fill(password);
   await page.getByRole("button",{name:"Sign in",exact:true}).click();
   await page.waitForTimeout(1000);
+  const sessionCheck=await page.evaluate(async()=>{
+    try {
+      const {supabase}=await import("/src/integrations/supabase/client.ts");
+      const sess=await supabase.auth.getSession();
+      const user=await supabase.auth.getUser();
+      return {session:!!sess.data.session,sessionError:sess.error?.message,
+        user:!!user.data.user,userError:user.error?.message,
+        storageKeys:Object.keys(localStorage).filter(x=>x.startsWith("sb-")).length};
+    } catch(e){return {debugError:e instanceof Error?e.message:String(e)};}
+  });
+  console.log("AUTH SESSION DIAGNOSTIC",JSON.stringify(sessionCheck));
   console.log("AUTH NAV DIAGNOSTIC",JSON.stringify({
     path:new URL(page.url()).pathname,pageErrors:pageErrors.slice(-5),netErrors:networkErrors.slice(-5),
     text:(await page.locator("body").innerText()).slice(-220)
