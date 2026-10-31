@@ -119,4 +119,4 @@ Do not paste these URLs or credentials into PRs, logs or chat. `pg_restore --lis
 
 ## 7. Release verdict
 
-Phase E code becomes **locally certified** only when the application, database, worker and Docker release tests pass in the same PR and again on merged `main`. **Production authorization and deployment remain blocked** until the checklist above is closed with real infrastructure and owner approval.
+Phase E code becomes **locally certified** only when Foundation CI, full-stack local Supabase+pgTAP+API+browser+worker certification, and the Docker release smoke pass in the same PR and again on merged `main`. The standalone Supabase smoke workflow is manually dispatchable, as the full-stack workflow already executes all of its essential checks. This prevents shared-runner port 54322 conflicts. **Production authorization and deployment remain blocked** until the checklist above is closed with real infrastructure and owner approval.

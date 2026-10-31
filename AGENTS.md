@@ -22,6 +22,6 @@ All test data must be isolated to localhost. Never aim destructive tests, Supaba
 - Consent and minimum-necessary data handling apply before connecting any remote AI provider.
 
 ## Release rules
-- Do not label a workflow production-certified because a frontend build passes. Check `Foundation CI`, `Local Supabase Database Certification`, and `Phase C Full-System Local Certification` on the actual merged commit.
+- Do not label a workflow production-certified because a frontend build passes. Check `Foundation CI`, `Phase C Full-System Local Certification` (includes PostgreSQL/pgTAP/API and browser/worker tests), and `Production Container Smoke` on the actual merged commit. `Local Supabase Database Certification` remains independently runnable on demand; do not start two local stacks concurrently.
 - Track exceptions; React warning follow-up is issue #9. Multi-currency/cash-movement reconciliation is issue #8.
 - Local passing tests are **not** live broker, remote production, security-penetration, or DR certification.
