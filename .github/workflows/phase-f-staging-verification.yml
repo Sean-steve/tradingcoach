@@ -25,6 +25,7 @@ jobs:
       TRADE_OS_CRON_SECRET: ${{ secrets.TRADE_OS_CRON_SECRET }}
       TRADE_OS_EXPECTED_SHA: ${{ inputs.release_sha }}
       TRADE_OS_EXPECTED_ENV: staging
+      TRADE_OS_EXPECTED_PROJECT_REF: ${{ secrets.TRADE_OS_STAGING_PROJECT_REF }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

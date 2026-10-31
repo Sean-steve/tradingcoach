@@ -1,0 +1,95 @@
+name: TRADE OS — Phase F.2 Financial Release Review (No Deployment)
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: "Exact full 40-character main SHA already certified in real staging"
+        required: true
+        type: string
+      staging_project_ref:
+        description: "Exact approved staging Supabase project ref (no passwords)"
+        required: true
+        type: string
+      historical_audit_sha256:
+        description: "SHA256 of private reviewed historical account reconciliation report"
+        required: true
+        type: string
+      restore_evidence_sha256:
+        description: "SHA256 of private verified restore-rehearsal evidence"
+        required: true
+        type: string
+      currency_and_balance_reconciled:
+        description: "Operator: every account reviewed, variances and currency unknowns resolved or explicitly quarantined"
+        required: true
+        type: boolean
+      backup_restore_certified:
+        description: "Operator: off-host encrypted backup restored to isolated database and checked"
+        required: true
+        type: boolean
+      operator_approval:
+        description: "Operator: approval backed by private evidence; no personal data is included in GitHub"
+        required: true
+        type: boolean
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: trade-os-financial-review
+  cancel-in-progress: false
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: trade-os-financial-review
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_SHA: ${{ inputs.release_sha }}
+      STAGING_REF: ${{ inputs.staging_project_ref }}
+      EXPECTED_STAGING_REF: ${{ secrets.TRADE_OS_STAGING_PROJECT_REF }}
+      AUDIT_HASH: ${{ inputs.historical_audit_sha256 }}
+      RESTORE_HASH: ${{ inputs.restore_evidence_sha256 }}
+      CURRENCY_APPROVED: ${{ inputs.currency_and_balance_reconciled }}
+      RESTORE_APPROVED: ${{ inputs.backup_restore_certified }}
+      OPERATOR_APPROVED: ${{ inputs.operator_approval }}
+    steps:
+      - name: Validate immutable release, dedicated target and evidence references
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == "refs/heads/main" && "$RELEASE_SHA" == "$GITHUB_SHA" ]] || {
+            echo "Review must run on and attest the exact current main commit"; exit 1;
+          }
+          [[ "$RELEASE_SHA" =~ ^[a-f0-9]{40}$ ]] || exit 1
+          [[ "$STAGING_REF" =~ ^[a-z0-9]{20}$ &&
+             "$EXPECTED_STAGING_REF" == "$STAGING_REF" ]] || {
+            echo "Staging ref unconfigured or differs from protected secret"; exit 1;
+          }
+          [[ "$AUDIT_HASH" =~ ^[a-f0-9]{64}$ &&
+             "$RESTORE_HASH" =~ ^[a-f0-9]{64}$ ]] || {
+            echo "Both private evidence SHA256 hashes are mandatory"; exit 1;
+          }
+          [[ "$CURRENCY_APPROVED" == "true" && "$RESTORE_APPROVED" == "true" &&
+             "$OPERATOR_APPROVED" == "true" ]] || {
+            echo "Qualified operator approvals are mandatory"; exit 1;
+          }
+          for workflow in ci.yml phase-c-local-certification.yml production-container.yml phase-f-staging-verification.yml; do
+            successes="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow/runs?head_sha=$RELEASE_SHA&per_page=100" --jq '[.workflow_runs[] | select(.head_sha=="'"$RELEASE_SHA"'" and .conclusion=="success")] | length')"
+            [[ "$successes" -ge 1 ]] || { echo "Missing $workflow evidence"; exit 1; }
+          done
+          echo "Financial evidence references are operator-attested, not independently verified by this job." >> "$GITHUB_STEP_SUMMARY"
+          echo "This workflow never changes balances, restores a database or deploys an app." >> "$GITHUB_STEP_SUMMARY"
+      - name: Record non-sensitive evidence fingerprints only
+        shell: bash
+        run: |
+          {
+            echo "Release: $RELEASE_SHA"
+            echo "Staging project ref: $STAGING_REF"
+            echo "Historical audit SHA256: $AUDIT_HASH"
+            echo "Restore rehearsal SHA256: $RESTORE_HASH"
+            echo "Operator review: approved"
+            echo "CAUTION: the hashes do not prove content integrity unless the private originals are retained and inspected."
+          } >> "$GITHUB_STEP_SUMMARY"
