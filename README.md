@@ -22,7 +22,7 @@ bun run local:dev       # exports server secrets and runs app on http://127.0.0.
 - App: **http://127.0.0.1:8080**
 - Local Supabase API: **http://127.0.0.1:54321**
 - Local Studio: **http://127.0.0.1:54323**
-- Email test inbox: **http://127.0.0.1:54324**
+- Email test inbox: **http://127.0.0.1:55424**
 
 `local:start` creates a Docker network bound to localhost and applies every tracked migration, including Phases 1–4. Auth emails can be tested with the local inbox. New local signups use email/password; Google OAuth is hidden by default until configured in Supabase.
 
