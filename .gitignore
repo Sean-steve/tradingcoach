@@ -41,3 +41,8 @@ supabase/.profiles/
 supabase/.env
 supabase/.env.*
 !supabase/.env.example
+
+# Local certification browser screenshots and CI artifacts
+artifacts/phase-c/
+playwright-report/
+test-results/
