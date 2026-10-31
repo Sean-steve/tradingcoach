@@ -210,7 +210,7 @@ CREATE POLICY "import runs read own" ON public.trade_import_runs
 ALTER TABLE public.trades ADD COLUMN import_run_id uuid REFERENCES public.trade_import_runs(id) ON DELETE SET NULL;
 
 CREATE OR REPLACE FUNCTION public.tradeos_import_trades(p_account uuid,p_rows jsonb)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE caller uuid:=auth.uid();
 BEGIN
   IF caller IS NULL THEN RAISE EXCEPTION 'Authentication required'; END IF;
@@ -221,7 +221,7 @@ BEGIN
     THEN RAISE EXCEPTION 'Expected an array of up to 1000 normalized trades'; END IF;
   -- The audited helper is intentionally not callable directly by clients.
   RETURN public.tradeos_import_trades_recorded(p_account,p_rows);
-END $;
+END; $$;
 
 CREATE OR REPLACE FUNCTION public.tradeos_import_trades_recorded(p_account uuid,p_rows jsonb)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
