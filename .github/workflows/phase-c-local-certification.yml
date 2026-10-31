@@ -1,6 +1,8 @@
 name: TRADE OS — Phase C Full-System Local Certification
 
 on:
+  push:
+    branches: ["main"]
   pull_request:
     paths:
       - "src/**"
@@ -11,6 +13,10 @@ on:
       - "package.json"
       - ".github/workflows/phase-c-local-certification.yml"
   workflow_dispatch:
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}"
+  cancel-in-progress: true
 
 permissions:
   contents: read
