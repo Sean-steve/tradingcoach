@@ -15,22 +15,41 @@ function isHttpsEndpoint(raw:string|undefined):boolean {
   }catch{return false}
 }
 
+function isPrivateHttpEndpoint(raw:string|undefined):boolean {
+  if(!raw)return false;
+  try {
+    const u=new URL(raw);
+    const host=u.hostname.toLowerCase();
+    return u.protocol==="http:" && !u.username && !u.password
+      && (/^10\./.test(host)||/^192\.168\./.test(host)
+        ||/^172\.(1[6-9]|2\d|3[01])\./.test(host)
+        ||host==="127.0.0.1" || host==="localhost"
+        ||/\.internal$|\.local$/.test(host)
+        ||/^[a-z][a-z0-9-]*$/.test(host));
+  }catch{return false}
+}
+
 export function productionPreflight(e:ProductionConfig):Finding[] {
   const errors:Finding[]=[];
   const block=(name:string,detail:string)=>errors.push({name,severity:"blocker",detail});
   const warn=(name:string,detail:string)=>errors.push({name,severity:"warning",detail});
   if(e.NODE_ENV!=="production")block("NODE_ENV","Must be production");
   const upstream=e.SUPABASE_URL;
-  if(!isHttpsEndpoint(upstream)&&e.TRADE_OS_PRIVATE_DB_HTTP!=="yes")
-    block("SUPABASE_URL","Use HTTPS; private HTTP requires an explicitly approved internal network");
+  if(!isHttpsEndpoint(upstream) && !(e.TRADE_OS_PRIVATE_DB_HTTP==="yes" && isPrivateHttpEndpoint(upstream)))
+    block("SUPABASE_URL","HTTPS required; private HTTP only for an explicit private network");
+  const publicUrl=e.TRADE_OS_PUBLIC_SUPABASE_URL||upstream;
+  if(!isHttpsEndpoint(publicUrl))
+    block("TRADE_OS_PUBLIC_SUPABASE_URL","Public Supabase endpoint must use HTTPS");
   if(!e.SUPABASE_PUBLISHABLE_KEY||/REPLACE_WITH|changeme/i.test(e.SUPABASE_PUBLISHABLE_KEY))
     block("SUPABASE_PUBLISHABLE_KEY","Must be configured");
   if(!e.SUPABASE_SERVICE_ROLE_KEY||/REPLACE_WITH|changeme/i.test(e.SUPABASE_SERVICE_ROLE_KEY))
     block("SUPABASE_SERVICE_ROLE_KEY","Server-only privileged key required");
+  if(e.SUPABASE_PUBLISHABLE_KEY && e.SUPABASE_PUBLISHABLE_KEY===e.SUPABASE_SERVICE_ROLE_KEY)
+    block("SUPABASE_SERVICE_ROLE_KEY","Must differ from the publishable key");
   if(!isStrongSecret(e.TRADE_OS_CRON_SECRET))
     block("TRADE_OS_CRON_SECRET","Require 32+ unpredictable characters");
-  if(e.VITE_SUPABASE_URL!==upstream && !e.TRADE_OS_PUBLIC_SUPABASE_URL)
-    block("VITE_SUPABASE_URL","Must agree with the server URL or define public Supabase URL");
+  if(e.VITE_SUPABASE_URL!==publicUrl)
+    block("VITE_SUPABASE_URL","Must match the configured HTTPS public Supabase URL");
   if(!e.VITE_SUPABASE_PUBLISHABLE_KEY || e.VITE_SUPABASE_PUBLISHABLE_KEY!==e.SUPABASE_PUBLISHABLE_KEY)
     block("VITE_SUPABASE_PUBLISHABLE_KEY","Must match publishable browser key");
   for(const [key,value] of Object.entries(e)){
