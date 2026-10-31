@@ -18,8 +18,15 @@ if [[ -z "$KEY" || -z "$ADMIN" ]]; then
   exit 1
 fi
 if [[ -f ".env.local" && "${1:-}" != "--force" ]]; then
-  echo ".env.local exists; preserving its secrets. Use scripts/local/env.sh --force to regenerate."
-  exit 0
+  local_url="$(sed -n 's/^SUPABASE_URL="\([^"]*\)"/\1/p' .env.local)"
+  case "$local_url" in
+    http://127.0.0.1:*|http://localhost:*)
+      echo ".env.local already targets localhost; preserving existing local credentials."
+      exit 0 ;;
+    *)
+      echo "Existing .env.local does not point to local Supabase. Use bash scripts/local/env.sh --force to replace it." >&2
+      exit 1 ;;
+  esac
 fi
 umask 077
 CRON="$(openssl rand -hex 32)"
