@@ -92,6 +92,10 @@ export TRADE_OS_RESTORE_APPROVED=YES
 bun run ops:restore-rehearsal -- /encrypted/tradeos-backups/<backup>.dump
 ```
 
+**Recovery hardening:** `ops:restore-rehearsal` now refuses to restore if the target server/port/database identity matches the source (even when URLs differ), or if the scratch database already has user relations. An accompanying SHA-256 manifest is mandatory; full integration certification still requires a genuine PostgreSQL archive and actual restore drill. The automated guard tests simulate database responses and do not constitute a successful real restore.
+
+**Supabase Storage caveat:** PostgreSQL dumps include Storage metadata, **not object bytes**. Separately back up Storage object data with access controls and a tested restore process. Do not claim complete disaster recovery based on a database dump alone. See the official Supabase backup guide.
+
 Do not paste these URLs or credentials into PRs, logs or chat. `pg_restore --list` is an integrity sanity check only; a complete restore rehearsal must be proved separately. Enable off-host encrypted snapshots with retention and tested key escrow. Record test evidence and actual recovery duration before promising an RPO/RTO. Scripts have **no deletion policy**; configure operator-approved retention separately.
 
 ## 6. Security/financial release gates
