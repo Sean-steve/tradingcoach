@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense, useMemo, useState } from "react";
 import { accountsQuery, tradesQuery } from "@/lib/queries";
+import { useActiveAccountId } from "@/lib/active-account";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -19,7 +20,9 @@ export const Route = createFileRoute("/_authenticated/trades/")({
 
 function TradesList() {
   const { data: accounts } = useSuspenseQuery(accountsQuery());
-  const { data: trades } = useSuspenseQuery(tradesQuery(accounts[0]?.id));
+  const { activeId } = useActiveAccountId();
+  const account = accounts.find(a => a.id === activeId) ?? accounts[0];
+  const { data: trades } = useSuspenseQuery(tradesQuery(account?.id));
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<"all" | "win" | "loss" | "open">("all");
 
